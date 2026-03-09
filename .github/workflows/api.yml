@@ -1,0 +1,42 @@
+name: API
+
+on:
+  push:
+    branches: [main]
+    paths:
+      - 'KanbanApi/**'
+      - 'KanbanApi.Tests/**'
+      - 'Dockerfile'
+      - 'fly.toml'
+      - '.github/workflows/api.yml'
+
+jobs:
+  build-test:
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+
+      - uses: actions/setup-dotnet@v4
+        with:
+          dotnet-version: '10.x'
+          cache: true
+          cache-dependency-path: '**/packages.lock.json'
+
+      - name: Build
+        run: dotnet build KanbanApi.sln
+
+      - name: Test
+        run: dotnet test KanbanApi.Tests/KanbanApi.Tests.csproj --no-build --logger "console;verbosity=minimal"
+
+  deploy:
+    needs: build-test
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+
+      - uses: superfly/flyctl-actions/setup-flyctl@1.5
+
+      - name: Deploy
+        run: flyctl deploy --remote-only
+        env:
+          FLY_API_TOKEN: ${{ secrets.FLY_API_TOKEN }}
