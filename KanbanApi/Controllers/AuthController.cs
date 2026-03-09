@@ -30,8 +30,8 @@ public class AuthController(IAuthService authService) : ControllerBase
     public async Task<IActionResult> CreateUser([FromBody] CreateUserRequest request)
     {
         var result = await authService.CreateUserAsync(request);
-        if (result.IsForbidden) return Conflict(new { error = "Username already exists." });
-        return CreatedAtAction(nameof(GetUsers), result.Value);
+        if (result.IsConflict) return Conflict(new { error = "Username already exists." });
+        return Created($"/auth/users/{result.Value!.Id}", result.Value);
     }
 
     [Authorize(Roles = "admin")]

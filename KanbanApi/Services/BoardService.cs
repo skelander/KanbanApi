@@ -1,10 +1,11 @@
 using KanbanApi.Data;
 using KanbanApi.Models;
 using Microsoft.EntityFrameworkCore;
+using Microsoft.Extensions.Logging;
 
 namespace KanbanApi.Services;
 
-public class BoardService(AppDbContext db) : IBoardService
+public class BoardService(AppDbContext db, ILogger<BoardService> logger) : IBoardService
 {
     public async Task<IEnumerable<BoardSummaryResponse>> GetBoardsForUserAsync(int userId)
     {
@@ -31,6 +32,8 @@ public class BoardService(AppDbContext db) : IBoardService
 
     public async Task<BoardResponse> CreateBoardAsync(CreateBoardRequest request, int userId)
     {
+        await using var transaction = await db.Database.BeginTransactionAsync();
+
         var board = new Board
         {
             Name = request.Name,
@@ -44,12 +47,29 @@ public class BoardService(AppDbContext db) : IBoardService
         db.BoardMembers.Add(new BoardMember { BoardId = board.Id, UserId = userId });
 
         string[] defaultColumns = ["To Do", "Doing", "Done"];
+        var columns = new List<Column>();
         for (int i = 0; i < defaultColumns.Length; i++)
-            db.Columns.Add(new Column { Name = defaultColumns[i], Position = i, BoardId = board.Id });
+        {
+            var col = new Column { Name = defaultColumns[i], Position = i, BoardId = board.Id };
+            db.Columns.Add(col);
+            columns.Add(col);
+        }
 
         await db.SaveChangesAsync();
+        await transaction.CommitAsync();
 
-        return await GetBoardResponseAsync(board.Id);
+        logger.LogInformation("Created board {BoardName} for user {UserId}", board.Name, userId);
+
+        var owner = await db.Users.FindAsync(userId);
+        return new BoardResponse(
+            board.Id,
+            board.Name,
+            board.Description,
+            board.OwnerId,
+            owner!.Username,
+            [new UserResponse(userId, owner.Username, owner.Role)],
+            columns.Select(c => new ColumnResponse(c.Id, c.Name, c.Position, c.WipLimit, c.BoardId))
+        );
     }
 
     public async Task<ServiceResult<BoardResponse>> UpdateBoardAsync(int boardId, UpdateBoardRequest request, int userId, bool isAdmin = false)
@@ -67,6 +87,7 @@ public class BoardService(AppDbContext db) : IBoardService
         if (request.Description is not null) board.Description = request.Description;
 
         await db.SaveChangesAsync();
+        logger.LogInformation("Updated board {BoardId}", boardId);
         return ServiceResult<BoardResponse>.Ok(MapToResponse(board));
     }
 
@@ -78,6 +99,7 @@ public class BoardService(AppDbContext db) : IBoardService
 
         db.Boards.Remove(board);
         await db.SaveChangesAsync();
+        logger.LogInformation("Deleted board {BoardId}", boardId);
         return ServiceResult<bool>.Ok(true);
     }
 
@@ -112,6 +134,7 @@ public class BoardService(AppDbContext db) : IBoardService
 
         db.BoardMembers.Add(new BoardMember { BoardId = boardId, UserId = targetUserId });
         await db.SaveChangesAsync();
+        logger.LogInformation("Added user {UserId} to board {BoardId}", targetUserId, boardId);
         return ServiceResult<bool>.Ok(true);
     }
 
@@ -123,25 +146,15 @@ public class BoardService(AppDbContext db) : IBoardService
 
         if (board is null) return ServiceResult<bool>.NotFound();
         if (!isAdmin && board.OwnerId != requestingUserId) return ServiceResult<bool>.Forbidden();
-        if (board.OwnerId == targetUserId) return ServiceResult<bool>.Forbidden(); // can't remove owner
+        if (board.OwnerId == targetUserId) return ServiceResult<bool>.Forbidden();
 
         var member = board.Members.FirstOrDefault(m => m.UserId == targetUserId);
         if (member is null) return ServiceResult<bool>.NotFound();
 
         db.BoardMembers.Remove(member);
         await db.SaveChangesAsync();
+        logger.LogInformation("Removed user {UserId} from board {BoardId}", targetUserId, boardId);
         return ServiceResult<bool>.Ok(true);
-    }
-
-    private async Task<BoardResponse> GetBoardResponseAsync(int boardId)
-    {
-        var board = await db.Boards
-            .Include(b => b.Owner)
-            .Include(b => b.Members).ThenInclude(m => m.User)
-            .Include(b => b.Columns.OrderBy(c => c.Position))
-            .FirstAsync(b => b.Id == boardId);
-
-        return MapToResponse(board);
     }
 
     private static BoardResponse MapToResponse(Board board) => new(
@@ -151,6 +164,6 @@ public class BoardService(AppDbContext db) : IBoardService
         board.OwnerId,
         board.Owner.Username,
         board.Members.Select(m => new UserResponse(m.User.Id, m.User.Username, m.User.Role)),
-        board.Columns.OrderBy(c => c.Position).Select(c => new ColumnResponse(c.Id, c.Name, c.Position, c.WipLimit, c.BoardId))
+        board.Columns.Select(c => new ColumnResponse(c.Id, c.Name, c.Position, c.WipLimit, c.BoardId))
     );
 }

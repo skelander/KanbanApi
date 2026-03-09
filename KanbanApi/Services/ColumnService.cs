@@ -1,12 +1,13 @@
 using KanbanApi.Data;
 using KanbanApi.Models;
 using Microsoft.EntityFrameworkCore;
+using Microsoft.Extensions.Logging;
 
 namespace KanbanApi.Services;
 
-public class ColumnService(AppDbContext db) : IColumnService
+public class ColumnService(AppDbContext db, ILogger<ColumnService> logger) : IColumnService
 {
-    public async Task<ServiceResult<IEnumerable<ColumnResponse>>> GetColumnsAsync(int boardId, int userId)
+    public async Task<ServiceResult<IEnumerable<ColumnResponse>>> GetColumnsAsync(int boardId, int userId, bool isAdmin = false)
     {
         var board = await db.Boards
             .Include(b => b.Members)
@@ -14,7 +15,7 @@ public class ColumnService(AppDbContext db) : IColumnService
             .FirstOrDefaultAsync(b => b.Id == boardId);
 
         if (board is null) return ServiceResult<IEnumerable<ColumnResponse>>.NotFound();
-        if (!board.Members.Any(m => m.UserId == userId))
+        if (!isAdmin && !board.Members.Any(m => m.UserId == userId))
             return ServiceResult<IEnumerable<ColumnResponse>>.Forbidden();
 
         var columns = board.Columns
@@ -24,7 +25,7 @@ public class ColumnService(AppDbContext db) : IColumnService
         return ServiceResult<IEnumerable<ColumnResponse>>.Ok(columns);
     }
 
-    public async Task<ServiceResult<ColumnResponse>> CreateColumnAsync(int boardId, CreateColumnRequest request, int userId)
+    public async Task<ServiceResult<ColumnResponse>> CreateColumnAsync(int boardId, CreateColumnRequest request, int userId, bool isAdmin = false)
     {
         var board = await db.Boards
             .Include(b => b.Members)
@@ -32,7 +33,7 @@ public class ColumnService(AppDbContext db) : IColumnService
             .FirstOrDefaultAsync(b => b.Id == boardId);
 
         if (board is null) return ServiceResult<ColumnResponse>.NotFound();
-        if (!board.Members.Any(m => m.UserId == userId))
+        if (!isAdmin && !board.Members.Any(m => m.UserId == userId))
             return ServiceResult<ColumnResponse>.Forbidden();
 
         var position = board.Columns.Count > 0 ? board.Columns.Max(c => c.Position) + 1 : 0;
@@ -41,10 +42,11 @@ public class ColumnService(AppDbContext db) : IColumnService
         db.Columns.Add(column);
         await db.SaveChangesAsync();
 
+        logger.LogInformation("Created column {ColumnName} on board {BoardId}", column.Name, boardId);
         return ServiceResult<ColumnResponse>.Ok(new ColumnResponse(column.Id, column.Name, column.Position, column.WipLimit, column.BoardId));
     }
 
-    public async Task<ServiceResult<ColumnResponse>> UpdateColumnAsync(int boardId, int columnId, UpdateColumnRequest request, int userId)
+    public async Task<ServiceResult<ColumnResponse>> UpdateColumnAsync(int boardId, int columnId, UpdateColumnRequest request, int userId, bool isAdmin = false)
     {
         var board = await db.Boards
             .Include(b => b.Members)
@@ -52,7 +54,7 @@ public class ColumnService(AppDbContext db) : IColumnService
             .FirstOrDefaultAsync(b => b.Id == boardId);
 
         if (board is null) return ServiceResult<ColumnResponse>.NotFound();
-        if (!board.Members.Any(m => m.UserId == userId))
+        if (!isAdmin && !board.Members.Any(m => m.UserId == userId))
             return ServiceResult<ColumnResponse>.Forbidden();
 
         var column = board.Columns.FirstOrDefault(c => c.Id == columnId);
@@ -66,7 +68,7 @@ public class ColumnService(AppDbContext db) : IColumnService
         return ServiceResult<ColumnResponse>.Ok(new ColumnResponse(column.Id, column.Name, column.Position, column.WipLimit, column.BoardId));
     }
 
-    public async Task<ServiceResult<bool>> DeleteColumnAsync(int boardId, int columnId, int userId)
+    public async Task<ServiceResult<bool>> DeleteColumnAsync(int boardId, int columnId, int userId, bool isAdmin = false)
     {
         var board = await db.Boards
             .Include(b => b.Members)
@@ -74,7 +76,7 @@ public class ColumnService(AppDbContext db) : IColumnService
             .FirstOrDefaultAsync(b => b.Id == boardId);
 
         if (board is null) return ServiceResult<bool>.NotFound();
-        if (!board.Members.Any(m => m.UserId == userId))
+        if (!isAdmin && !board.Members.Any(m => m.UserId == userId))
             return ServiceResult<bool>.Forbidden();
 
         var column = board.Columns.FirstOrDefault(c => c.Id == columnId);
@@ -82,6 +84,7 @@ public class ColumnService(AppDbContext db) : IColumnService
 
         db.Columns.Remove(column);
         await db.SaveChangesAsync();
+        logger.LogInformation("Deleted column {ColumnId} from board {BoardId}", columnId, boardId);
         return ServiceResult<bool>.Ok(true);
     }
 }

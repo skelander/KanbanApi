@@ -12,11 +12,12 @@ namespace KanbanApi.Controllers;
 public class CardsController(ICardService cardService) : ControllerBase
 {
     private int UserId => int.Parse(User.FindFirstValue(ClaimTypes.NameIdentifier)!);
+    private bool IsAdmin => User.IsInRole("admin");
 
     [HttpGet]
     public async Task<IActionResult> GetCards(int boardId, int columnId)
     {
-        var result = await cardService.GetCardsAsync(boardId, columnId, UserId);
+        var result = await cardService.GetCardsAsync(boardId, columnId, UserId, IsAdmin);
         if (result.IsNotFound) return NotFound();
         if (result.IsForbidden) return Forbid();
         return Ok(result.Value);
@@ -25,7 +26,7 @@ public class CardsController(ICardService cardService) : ControllerBase
     [HttpPost]
     public async Task<IActionResult> CreateCard(int boardId, int columnId, [FromBody] CreateCardRequest request)
     {
-        var result = await cardService.CreateCardAsync(boardId, columnId, request, UserId);
+        var result = await cardService.CreateCardAsync(boardId, columnId, request, UserId, IsAdmin);
         if (result.IsNotFound) return NotFound();
         if (result.IsForbidden) return Forbid();
         return CreatedAtAction(nameof(GetCards), new { boardId, columnId }, result.Value);
@@ -34,7 +35,7 @@ public class CardsController(ICardService cardService) : ControllerBase
     [HttpPut("{cardId}")]
     public async Task<IActionResult> UpdateCard(int boardId, int columnId, int cardId, [FromBody] UpdateCardRequest request)
     {
-        var result = await cardService.UpdateCardAsync(boardId, columnId, cardId, request, UserId);
+        var result = await cardService.UpdateCardAsync(boardId, columnId, cardId, request, UserId, IsAdmin);
         if (result.IsNotFound) return NotFound();
         if (result.IsForbidden) return Forbid();
         return Ok(result.Value);
@@ -43,7 +44,7 @@ public class CardsController(ICardService cardService) : ControllerBase
     [HttpDelete("{cardId}")]
     public async Task<IActionResult> DeleteCard(int boardId, int columnId, int cardId)
     {
-        var result = await cardService.DeleteCardAsync(boardId, columnId, cardId, UserId);
+        var result = await cardService.DeleteCardAsync(boardId, columnId, cardId, UserId, IsAdmin);
         if (result.IsNotFound) return NotFound();
         if (result.IsForbidden) return Forbid();
         return NoContent();
@@ -52,7 +53,7 @@ public class CardsController(ICardService cardService) : ControllerBase
     [HttpPut("{cardId}/move")]
     public async Task<IActionResult> MoveCard(int boardId, int columnId, int cardId, [FromBody] MoveCardRequest request)
     {
-        var result = await cardService.MoveCardAsync(boardId, columnId, cardId, request, UserId);
+        var result = await cardService.MoveCardAsync(boardId, columnId, cardId, request, UserId, IsAdmin);
         if (result.IsNotFound) return NotFound();
         if (result.IsForbidden) return Forbid();
         return Ok(result.Value);

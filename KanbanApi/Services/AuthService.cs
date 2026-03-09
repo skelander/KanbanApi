@@ -4,25 +4,36 @@ using System.Text;
 using KanbanApi.Data;
 using KanbanApi.Models;
 using Microsoft.EntityFrameworkCore;
+using Microsoft.Extensions.Logging;
 using Microsoft.IdentityModel.Tokens;
 
 namespace KanbanApi.Services;
 
-public class AuthService(AppDbContext db, IConfiguration config) : IAuthService
+public class AuthService(AppDbContext db, IConfiguration config, ILogger<AuthService> logger) : IAuthService
 {
     public async Task<string?> LoginAsync(string username, string password)
     {
         var user = await db.Users.FirstOrDefaultAsync(u => u.Username == username);
         if (user is null || !BCrypt.Net.BCrypt.Verify(password, user.PasswordHash))
+        {
+            logger.LogWarning("Failed login attempt for username {Username}", username);
             return null;
+        }
 
+        logger.LogInformation("User {Username} logged in", username);
         return GenerateToken(user);
     }
 
     public async Task<ServiceResult<UserResponse>> CreateUserAsync(CreateUserRequest request)
     {
-        if (await db.Users.AnyAsync(u => u.Username == request.Username))
+        if (!CreateUserRequest.AllowedRoles.Contains(request.Role))
             return ServiceResult<UserResponse>.Forbidden();
+
+        if (await db.Users.AnyAsync(u => u.Username == request.Username))
+        {
+            logger.LogWarning("Attempted to create duplicate user {Username}", request.Username);
+            return ServiceResult<UserResponse>.Conflict();
+        }
 
         var user = new User
         {
@@ -34,6 +45,7 @@ public class AuthService(AppDbContext db, IConfiguration config) : IAuthService
         db.Users.Add(user);
         await db.SaveChangesAsync();
 
+        logger.LogInformation("Created user {Username} with role {Role}", user.Username, user.Role);
         return ServiceResult<UserResponse>.Ok(new UserResponse(user.Id, user.Username, user.Role));
     }
 
@@ -49,8 +61,16 @@ public class AuthService(AppDbContext db, IConfiguration config) : IAuthService
         var user = await db.Users.FindAsync(id);
         if (user is null) return false;
 
+        var adminCount = await db.Users.CountAsync(u => u.Role == "admin");
+        if (user.Role == "admin" && adminCount <= 1)
+        {
+            logger.LogWarning("Attempted to delete last admin user {Username}", user.Username);
+            return false;
+        }
+
         db.Users.Remove(user);
         await db.SaveChangesAsync();
+        logger.LogInformation("Deleted user {Username}", user.Username);
         return true;
     }
 

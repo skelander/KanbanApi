@@ -178,12 +178,11 @@ public class CardsControllerTests(KanbanApiFactory factory) : IClassFixture<Kanb
     public async Task GetCards_AsNonMember_ReturnsForbid()
     {
         var (board, column) = await SetupAsync();
+        var outsiderUsername = $"outsider_{Guid.NewGuid():N}";
         var adminToken = await Helpers.LoginAsync(_client, "admin", "admin");
         _client.SetBearer(adminToken);
-        await _client.PostAsJsonAsync("/auth/users", new CreateUserRequest($"outsider_{Guid.NewGuid():N}", "pass", "user"));
-        var users = await (await _client.GetAsync("/auth/users")).Content.ReadFromJsonAsync<List<UserResponse>>();
-        var outsider = users!.Last();
-        var outsiderToken = await Helpers.LoginAsync(_client, outsider.Username, "pass");
+        await _client.PostAsJsonAsync("/auth/users", new CreateUserRequest(outsiderUsername, "pass1234", "user"));
+        var outsiderToken = await Helpers.LoginAsync(_client, outsiderUsername, "pass1234");
         _client.SetBearer(outsiderToken);
         var response = await _client.GetAsync($"/boards/{board.Id}/columns/{column.Id}/cards");
         Assert.Equal(HttpStatusCode.Forbidden, response.StatusCode);

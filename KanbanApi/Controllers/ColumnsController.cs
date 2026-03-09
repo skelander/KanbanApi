@@ -12,11 +12,12 @@ namespace KanbanApi.Controllers;
 public class ColumnsController(IColumnService columnService) : ControllerBase
 {
     private int UserId => int.Parse(User.FindFirstValue(ClaimTypes.NameIdentifier)!);
+    private bool IsAdmin => User.IsInRole("admin");
 
     [HttpGet]
     public async Task<IActionResult> GetColumns(int boardId)
     {
-        var result = await columnService.GetColumnsAsync(boardId, UserId);
+        var result = await columnService.GetColumnsAsync(boardId, UserId, IsAdmin);
         if (result.IsNotFound) return NotFound();
         if (result.IsForbidden) return Forbid();
         return Ok(result.Value);
@@ -25,7 +26,7 @@ public class ColumnsController(IColumnService columnService) : ControllerBase
     [HttpPost]
     public async Task<IActionResult> CreateColumn(int boardId, [FromBody] CreateColumnRequest request)
     {
-        var result = await columnService.CreateColumnAsync(boardId, request, UserId);
+        var result = await columnService.CreateColumnAsync(boardId, request, UserId, IsAdmin);
         if (result.IsNotFound) return NotFound();
         if (result.IsForbidden) return Forbid();
         return CreatedAtAction(nameof(GetColumns), new { boardId }, result.Value);
@@ -34,7 +35,7 @@ public class ColumnsController(IColumnService columnService) : ControllerBase
     [HttpPut("{columnId}")]
     public async Task<IActionResult> UpdateColumn(int boardId, int columnId, [FromBody] UpdateColumnRequest request)
     {
-        var result = await columnService.UpdateColumnAsync(boardId, columnId, request, UserId);
+        var result = await columnService.UpdateColumnAsync(boardId, columnId, request, UserId, IsAdmin);
         if (result.IsNotFound) return NotFound();
         if (result.IsForbidden) return Forbid();
         return Ok(result.Value);
@@ -43,7 +44,7 @@ public class ColumnsController(IColumnService columnService) : ControllerBase
     [HttpDelete("{columnId}")]
     public async Task<IActionResult> DeleteColumn(int boardId, int columnId)
     {
-        var result = await columnService.DeleteColumnAsync(boardId, columnId, UserId);
+        var result = await columnService.DeleteColumnAsync(boardId, columnId, UserId, IsAdmin);
         if (result.IsNotFound) return NotFound();
         if (result.IsForbidden) return Forbid();
         return NoContent();
