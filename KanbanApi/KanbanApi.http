@@ -1,6 +1,193 @@
-@KanbanApi_HostAddress = http://localhost:5154
+@host = http://localhost:5154
+@token = REPLACE_WITH_TOKEN_FROM_LOGIN
 
-GET {{KanbanApi_HostAddress}}/weatherforecast/
-Accept: application/json
+### Login
+POST {{host}}/auth/login
+Content-Type: application/json
+
+{
+  "username": "admin",
+  "password": "admin"
+}
+
+###
+
+### Get all users (admin)
+GET {{host}}/auth/users
+Authorization: Bearer {{token}}
+
+###
+
+### Create user (admin)
+POST {{host}}/auth/users
+Authorization: Bearer {{token}}
+Content-Type: application/json
+
+{
+  "username": "alice",
+  "password": "password123",
+  "role": "user"
+}
+
+###
+
+### Delete user (admin)
+DELETE {{host}}/auth/users/2
+Authorization: Bearer {{token}}
+
+###
+
+### Get my boards
+GET {{host}}/boards
+Authorization: Bearer {{token}}
+
+###
+
+### Create board
+POST {{host}}/boards
+Authorization: Bearer {{token}}
+Content-Type: application/json
+
+{
+  "name": "My First Board",
+  "description": "A test board"
+}
+
+###
+
+### Get board
+GET {{host}}/boards/1
+Authorization: Bearer {{token}}
+
+###
+
+### Update board
+PUT {{host}}/boards/1
+Authorization: Bearer {{token}}
+Content-Type: application/json
+
+{
+  "name": "Renamed Board",
+  "description": "Updated description"
+}
+
+###
+
+### Delete board
+DELETE {{host}}/boards/1
+Authorization: Bearer {{token}}
+
+###
+
+### Get board members
+GET {{host}}/boards/1/members
+Authorization: Bearer {{token}}
+
+###
+
+### Add member to board
+POST {{host}}/boards/1/members
+Authorization: Bearer {{token}}
+Content-Type: application/json
+
+{
+  "userId": 2
+}
+
+###
+
+### Remove member from board
+DELETE {{host}}/boards/1/members/2
+Authorization: Bearer {{token}}
+
+###
+
+### Get columns
+GET {{host}}/boards/1/columns
+Authorization: Bearer {{token}}
+
+###
+
+### Create column
+POST {{host}}/boards/1/columns
+Authorization: Bearer {{token}}
+Content-Type: application/json
+
+{
+  "name": "Review",
+  "wipLimit": 3
+}
+
+###
+
+### Update column
+PUT {{host}}/boards/1/columns/1
+Authorization: Bearer {{token}}
+Content-Type: application/json
+
+{
+  "name": "In Review",
+  "position": 2,
+  "wipLimit": 5
+}
+
+###
+
+### Delete column
+DELETE {{host}}/boards/1/columns/1
+Authorization: Bearer {{token}}
+
+###
+
+### Get cards
+GET {{host}}/boards/1/columns/1/cards
+Authorization: Bearer {{token}}
+
+###
+
+### Create card
+POST {{host}}/boards/1/columns/1/cards
+Authorization: Bearer {{token}}
+Content-Type: application/json
+
+{
+  "title": "Implement login page",
+  "description": "Build the login form with validation"
+}
+
+###
+
+### Update card
+PUT {{host}}/boards/1/columns/1/cards/1
+Authorization: Bearer {{token}}
+Content-Type: application/json
+
+{
+  "title": "Implement login page (updated)",
+  "description": "Build the login form with validation and error handling"
+}
+
+###
+
+### Move card to another column
+PUT {{host}}/boards/1/columns/1/cards/1/move
+Authorization: Bearer {{token}}
+Content-Type: application/json
+
+{
+  "targetColumnId": 2,
+  "position": 0
+}
+
+###
+
+### Delete card
+DELETE {{host}}/boards/1/columns/1/cards/1
+Authorization: Bearer {{token}}
+
+###
+
+### Health check
+GET {{host}}/health
 
 ###
