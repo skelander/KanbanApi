@@ -56,22 +56,25 @@ public class AuthService(AppDbContext db, IConfiguration config, ILogger<AuthSer
             .ToListAsync();
     }
 
-    public async Task<bool> DeleteUserAsync(int id)
+    public async Task<ServiceResult<bool>> DeleteUserAsync(int id)
     {
         var user = await db.Users.FindAsync(id);
-        if (user is null) return false;
+        if (user is null) return ServiceResult<bool>.NotFound();
 
-        var adminCount = await db.Users.CountAsync(u => u.Role == "admin");
-        if (user.Role == "admin" && adminCount <= 1)
+        if (user.Role == "admin")
         {
-            logger.LogWarning("Attempted to delete last admin user {Username}", user.Username);
-            return false;
+            var adminCount = await db.Users.CountAsync(u => u.Role == "admin");
+            if (adminCount <= 1)
+            {
+                logger.LogWarning("Attempted to delete last admin user {Username}", user.Username);
+                return ServiceResult<bool>.Conflict();
+            }
         }
 
         db.Users.Remove(user);
         await db.SaveChangesAsync();
         logger.LogInformation("Deleted user {Username}", user.Username);
-        return true;
+        return ServiceResult<bool>.Ok(true);
     }
 
     private string GenerateToken(User user)

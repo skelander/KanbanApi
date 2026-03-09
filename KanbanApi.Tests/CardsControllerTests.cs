@@ -195,4 +195,24 @@ public class CardsControllerTests(KanbanApiFactory factory) : IClassFixture<Kanb
         var response = await _client.GetAsync($"/boards/{board.Id}/columns/99999/cards");
         Assert.Equal(HttpStatusCode.NotFound, response.StatusCode);
     }
+
+    [Fact]
+    public async Task GetCards_AsAdmin_CanAccessAnyBoard()
+    {
+        // Create a board as a regular user (admin is not a member)
+        var adminToken = await Helpers.LoginAsync(_client, "admin", "admin");
+        _client.SetBearer(adminToken);
+        var ownerUsername = $"boardowner_{Guid.NewGuid():N}";
+        await _client.PostAsJsonAsync("/auth/users", new CreateUserRequest(ownerUsername, "pass1234", "user"));
+        var ownerToken = await Helpers.LoginAsync(_client, ownerUsername, "pass1234");
+        _client.SetBearer(ownerToken);
+        var boardResponse = await _client.PostAsJsonAsync("/boards", new CreateBoardRequest("Admin Bypass Board", null));
+        var board = (await boardResponse.Content.ReadFromJsonAsync<BoardResponse>())!;
+        var column = board.Columns.First();
+
+        // Admin (not a member) should bypass the membership check
+        _client.SetBearer(adminToken);
+        var response = await _client.GetAsync($"/boards/{board.Id}/columns/{column.Id}/cards");
+        Assert.Equal(HttpStatusCode.OK, response.StatusCode);
+    }
 }

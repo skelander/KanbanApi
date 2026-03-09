@@ -30,7 +30,7 @@ public class BoardService(AppDbContext db, ILogger<BoardService> logger) : IBoar
         return ServiceResult<BoardResponse>.Ok(MapToResponse(board));
     }
 
-    public async Task<BoardResponse> CreateBoardAsync(CreateBoardRequest request, int userId)
+    public async Task<BoardResponse> CreateBoardAsync(CreateBoardRequest request, int userId, string ownerUsername, string ownerRole)
     {
         await using var transaction = await db.Database.BeginTransactionAsync();
 
@@ -60,14 +60,13 @@ public class BoardService(AppDbContext db, ILogger<BoardService> logger) : IBoar
 
         logger.LogInformation("Created board {BoardName} for user {UserId}", board.Name, userId);
 
-        var owner = await db.Users.FindAsync(userId);
         return new BoardResponse(
             board.Id,
             board.Name,
             board.Description,
             board.OwnerId,
-            owner!.Username,
-            [new UserResponse(userId, owner.Username, owner.Role)],
+            ownerUsername,
+            [new UserResponse(userId, ownerUsername, ownerRole)],
             columns.Select(c => new ColumnResponse(c.Id, c.Name, c.Position, c.WipLimit, c.BoardId))
         );
     }

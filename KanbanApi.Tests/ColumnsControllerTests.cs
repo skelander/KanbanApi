@@ -91,10 +91,9 @@ public class ColumnsControllerTests(KanbanApiFactory factory) : IClassFixture<Ka
         var board = await CreateBoardAsync();
         var adminToken = await Helpers.LoginAsync(_client, "admin", "admin");
         _client.SetBearer(adminToken);
-        await _client.PostAsJsonAsync("/auth/users", new CreateUserRequest($"outsider_{Guid.NewGuid():N}", "pass", "user"));
-        var users = await (await _client.GetAsync("/auth/users")).Content.ReadFromJsonAsync<List<UserResponse>>();
-        var outsider = users!.Last();
-        var outsiderToken = await Helpers.LoginAsync(_client, outsider.Username, "pass");
+        var outsiderUsername = $"outsider_{Guid.NewGuid():N}";
+        await _client.PostAsJsonAsync("/auth/users", new CreateUserRequest(outsiderUsername, "pass1234", "user"));
+        var outsiderToken = await Helpers.LoginAsync(_client, outsiderUsername, "pass1234");
         _client.SetBearer(outsiderToken);
         var response = await _client.GetAsync($"/boards/{board.Id}/columns");
         Assert.Equal(HttpStatusCode.Forbidden, response.StatusCode);
@@ -106,5 +105,24 @@ public class ColumnsControllerTests(KanbanApiFactory factory) : IClassFixture<Ka
         await AdminTokenAsync();
         var response = await _client.GetAsync("/boards/99999/columns");
         Assert.Equal(HttpStatusCode.NotFound, response.StatusCode);
+    }
+
+    [Fact]
+    public async Task GetColumns_AsAdmin_CanAccessAnyBoard()
+    {
+        // Create a board as a regular user (admin is not a member)
+        var adminToken = await Helpers.LoginAsync(_client, "admin", "admin");
+        _client.SetBearer(adminToken);
+        var ownerUsername = $"boardowner_{Guid.NewGuid():N}";
+        await _client.PostAsJsonAsync("/auth/users", new CreateUserRequest(ownerUsername, "pass1234", "user"));
+        var ownerToken = await Helpers.LoginAsync(_client, ownerUsername, "pass1234");
+        _client.SetBearer(ownerToken);
+        var boardResponse = await _client.PostAsJsonAsync("/boards", new CreateBoardRequest("Private Board", null));
+        var board = (await boardResponse.Content.ReadFromJsonAsync<BoardResponse>())!;
+
+        // Admin (not a member) should bypass the membership check
+        _client.SetBearer(adminToken);
+        var response = await _client.GetAsync($"/boards/{board.Id}/columns");
+        Assert.Equal(HttpStatusCode.OK, response.StatusCode);
     }
 }

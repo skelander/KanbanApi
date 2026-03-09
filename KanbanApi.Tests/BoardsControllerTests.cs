@@ -144,7 +144,7 @@ public class BoardsControllerTests(KanbanApiFactory factory) : IClassFixture<Kan
         var token = await AdminTokenAsync();
         _client.SetBearer(token);
         var response = await _client.PostAsJsonAsync($"/boards/{board.Id}/members", new AddMemberRequest(user.Id));
-        Assert.Equal(HttpStatusCode.OK, response.StatusCode);
+        Assert.Equal(HttpStatusCode.NoContent, response.StatusCode);
 
         // Verify member can now access the board
         var userToken = await Helpers.LoginAsync(_client, user.Username, "pass");

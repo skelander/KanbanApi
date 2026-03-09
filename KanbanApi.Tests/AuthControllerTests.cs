@@ -90,4 +90,24 @@ public class AuthControllerTests(KanbanApiFactory factory) : IClassFixture<Kanba
         var response = await _client.DeleteAsync("/auth/users/99999");
         Assert.Equal(HttpStatusCode.NotFound, response.StatusCode);
     }
+
+    [Fact]
+    public async Task CreateUser_WithInvalidRole_ReturnsBadRequest()
+    {
+        var token = await Helpers.LoginAsync(_client, "admin", "admin");
+        _client.SetBearer(token);
+        var response = await _client.PostAsJsonAsync("/auth/users", new CreateUserRequest("anyuser", "pass1234", "superuser"));
+        Assert.Equal(HttpStatusCode.BadRequest, response.StatusCode);
+    }
+
+    [Fact]
+    public async Task DeleteUser_LastAdmin_ReturnsConflict()
+    {
+        var token = await Helpers.LoginAsync(_client, "admin", "admin");
+        _client.SetBearer(token);
+        var users = await (await _client.GetAsync("/auth/users")).Content.ReadFromJsonAsync<List<UserResponse>>();
+        var admin = users!.First(u => u.Role == "admin");
+        var response = await _client.DeleteAsync($"/auth/users/{admin.Id}");
+        Assert.Equal(HttpStatusCode.Conflict, response.StatusCode);
+    }
 }

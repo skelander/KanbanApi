@@ -30,6 +30,7 @@ public class AuthController(IAuthService authService) : ControllerBase
     public async Task<IActionResult> CreateUser([FromBody] CreateUserRequest request)
     {
         var result = await authService.CreateUserAsync(request);
+        if (result.IsForbidden) return BadRequest(new { error = $"Invalid role. Allowed values: {string.Join(", ", CreateUserRequest.AllowedRoles)}." });
         if (result.IsConflict) return Conflict(new { error = "Username already exists." });
         return Created($"/auth/users/{result.Value!.Id}", result.Value);
     }
@@ -38,8 +39,9 @@ public class AuthController(IAuthService authService) : ControllerBase
     [HttpDelete("users/{id}")]
     public async Task<IActionResult> DeleteUser(int id)
     {
-        var deleted = await authService.DeleteUserAsync(id);
-        if (!deleted) return NotFound();
+        var result = await authService.DeleteUserAsync(id);
+        if (result.IsNotFound) return NotFound();
+        if (result.IsConflict) return Conflict(new { error = "Cannot delete the last admin account." });
         return NoContent();
     }
 }

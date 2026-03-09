@@ -24,7 +24,9 @@ public class BoardsController(IBoardService boardService) : ControllerBase
     [HttpPost]
     public async Task<IActionResult> CreateBoard([FromBody] CreateBoardRequest request)
     {
-        var board = await boardService.CreateBoardAsync(request, UserId);
+        var username = User.FindFirstValue(ClaimTypes.Name)!;
+        var role = User.FindFirstValue(ClaimTypes.Role)!;
+        var board = await boardService.CreateBoardAsync(request, UserId, username, role);
         return CreatedAtAction(nameof(GetBoard), new { id = board.Id }, board);
     }
 
@@ -70,7 +72,7 @@ public class BoardsController(IBoardService boardService) : ControllerBase
         var result = await boardService.AddMemberAsync(id, request.UserId, UserId, IsAdmin);
         if (result.IsNotFound) return NotFound();
         if (result.IsForbidden) return Forbid();
-        return Ok();
+        return NoContent();
     }
 
     [HttpDelete("{id}/members/{userId}")]
