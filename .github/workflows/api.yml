@@ -23,7 +23,7 @@ jobs:
           cache-dependency-path: '**/packages.lock.json'
 
       - name: Build
-        run: dotnet build KanbanApi.sln
+        run: dotnet build KanbanApi.slnx
 
       - name: Test
         run: dotnet test KanbanApi.Tests/KanbanApi.Tests.csproj --no-build --logger "console;verbosity=minimal"
