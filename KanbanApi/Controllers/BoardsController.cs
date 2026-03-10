@@ -21,6 +21,7 @@ public class BoardsController(IBoardService boardService) : ControllerBase
         return Ok(boards);
     }
 
+    [Authorize(Roles = "admin")]
     [HttpPost]
     public async Task<IActionResult> CreateBoard([FromBody] CreateBoardRequest request)
     {

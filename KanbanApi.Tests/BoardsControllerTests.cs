@@ -173,4 +173,14 @@ public class BoardsControllerTests(KanbanApiFactory factory) : IClassFixture<Kan
         var response = await _client.GetAsync("/boards/99999");
         Assert.Equal(HttpStatusCode.NotFound, response.StatusCode);
     }
+
+    [Fact]
+    public async Task CreateBoard_AsUser_ReturnsForbidden()
+    {
+        var user = await CreateUserAsync($"regularuser_{Guid.NewGuid():N}");
+        var userToken = await Helpers.LoginAsync(_client, user.Username, "pass");
+        _client.SetBearer(userToken);
+        var response = await _client.PostAsJsonAsync("/boards", new CreateBoardRequest("Should Fail", null));
+        Assert.Equal(HttpStatusCode.Forbidden, response.StatusCode);
+    }
 }
