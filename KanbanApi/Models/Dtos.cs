@@ -12,10 +12,7 @@ public record LoginResponse(string Token);
 public record CreateUserRequest(
     [Required][MaxLength(100)] string Username,
     [Required][MinLength(4)] string Password,
-    [Required] string Role)
-{
-    public static readonly string[] AllowedRoles = ["user", "admin"];
-}
+    [Required][AllowedValues("user", "admin", ErrorMessage = "Role must be 'user' or 'admin'.")] string Role);
 
 public record UserResponse(int Id, string Username, string Role);
 
@@ -82,4 +79,17 @@ public record ServiceResult<T>(T? Value, ServiceStatus Status)
     public static ServiceResult<T> NotFound() => new(default, ServiceStatus.NotFound);
     public static ServiceResult<T> Forbidden() => new(default, ServiceStatus.Forbidden);
     public static ServiceResult<T> Conflict() => new(default, ServiceStatus.Conflict);
+}
+
+public record ServiceResult(ServiceStatus Status)
+{
+    public bool IsSuccess => Status == ServiceStatus.Ok;
+    public bool IsNotFound => Status == ServiceStatus.NotFound;
+    public bool IsForbidden => Status == ServiceStatus.Forbidden;
+    public bool IsConflict => Status == ServiceStatus.Conflict;
+
+    public static ServiceResult Ok() => new(ServiceStatus.Ok);
+    public static ServiceResult NotFound() => new(ServiceStatus.NotFound);
+    public static ServiceResult Forbidden() => new(ServiceStatus.Forbidden);
+    public static ServiceResult Conflict() => new(ServiceStatus.Conflict);
 }

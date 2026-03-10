@@ -35,7 +35,7 @@ The `appsettings.Development.json` (included in the repo) provides a local JWT k
 dotnet test KanbanApi.slnx
 ```
 
-48 integration tests using an in-memory SQLite database. No external dependencies required.
+54 integration tests using an in-memory SQLite database. No external dependencies required.
 
 ## API Endpoints
 

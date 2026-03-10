@@ -7,16 +7,14 @@ namespace KanbanApi.Services;
 
 public class CardService(AppDbContext db, ILogger<CardService> logger) : ICardService
 {
-    public async Task<ServiceResult<IEnumerable<CardResponse>>> GetCardsAsync(int boardId, int columnId, int userId, bool isAdmin = false)
+    public async Task<ServiceResult<IEnumerable<CardResponse>>> GetCardsAsync(int boardId, int columnId, int userId, bool isAdmin = false, CancellationToken ct = default)
     {
-        if (!isAdmin && !await IsBoardMemberAsync(boardId, userId))
-            return await BoardExistsAsync(boardId)
-                ? ServiceResult<IEnumerable<CardResponse>>.Forbidden()
-                : ServiceResult<IEnumerable<CardResponse>>.NotFound();
+        if (await CheckBoardAccessAsync(boardId, userId, isAdmin, ct) is { } denied)
+            return new ServiceResult<IEnumerable<CardResponse>>(default, denied);
 
         var column = await db.Columns
             .Include(c => c.Cards).ThenInclude(c => c.StateHistory)
-            .FirstOrDefaultAsync(c => c.Id == columnId && c.BoardId == boardId);
+            .FirstOrDefaultAsync(c => c.Id == columnId && c.BoardId == boardId, ct);
 
         if (column is null) return ServiceResult<IEnumerable<CardResponse>>.NotFound();
 
@@ -27,16 +25,14 @@ public class CardService(AppDbContext db, ILogger<CardService> logger) : ICardSe
         return ServiceResult<IEnumerable<CardResponse>>.Ok(cards);
     }
 
-    public async Task<ServiceResult<CardResponse>> CreateCardAsync(int boardId, int columnId, CreateCardRequest request, int userId, bool isAdmin = false)
+    public async Task<ServiceResult<CardResponse>> CreateCardAsync(int boardId, int columnId, CreateCardRequest request, int userId, bool isAdmin = false, CancellationToken ct = default)
     {
-        if (!isAdmin && !await IsBoardMemberAsync(boardId, userId))
-            return await BoardExistsAsync(boardId)
-                ? ServiceResult<CardResponse>.Forbidden()
-                : ServiceResult<CardResponse>.NotFound();
+        if (await CheckBoardAccessAsync(boardId, userId, isAdmin, ct) is { } denied)
+            return new ServiceResult<CardResponse>(default, denied);
 
         var column = await db.Columns
             .Include(c => c.Cards)
-            .FirstOrDefaultAsync(c => c.Id == columnId && c.BoardId == boardId);
+            .FirstOrDefaultAsync(c => c.Id == columnId && c.BoardId == boardId, ct);
 
         if (column is null) return ServiceResult<CardResponse>.NotFound();
 
@@ -57,22 +53,20 @@ public class CardService(AppDbContext db, ILogger<CardService> logger) : ICardSe
         });
 
         db.Cards.Add(card);
-        await db.SaveChangesAsync();
+        await db.SaveChangesAsync(ct);
 
         logger.LogInformation("Created card {CardTitle} in column {ColumnId}", card.Title, columnId);
         return ServiceResult<CardResponse>.Ok(MapToResponse(card));
     }
 
-    public async Task<ServiceResult<CardResponse>> UpdateCardAsync(int boardId, int columnId, int cardId, UpdateCardRequest request, int userId, bool isAdmin = false)
+    public async Task<ServiceResult<CardResponse>> UpdateCardAsync(int boardId, int columnId, int cardId, UpdateCardRequest request, int userId, bool isAdmin = false, CancellationToken ct = default)
     {
-        if (!isAdmin && !await IsBoardMemberAsync(boardId, userId))
-            return await BoardExistsAsync(boardId)
-                ? ServiceResult<CardResponse>.Forbidden()
-                : ServiceResult<CardResponse>.NotFound();
+        if (await CheckBoardAccessAsync(boardId, userId, isAdmin, ct) is { } denied)
+            return new ServiceResult<CardResponse>(default, denied);
 
         var card = await db.Cards
             .Include(c => c.StateHistory)
-            .FirstOrDefaultAsync(c => c.Id == cardId && c.ColumnId == columnId && c.Column.BoardId == boardId);
+            .FirstOrDefaultAsync(c => c.Id == cardId && c.ColumnId == columnId && c.Column.BoardId == boardId, ct);
 
         if (card is null) return ServiceResult<CardResponse>.NotFound();
 
@@ -80,42 +74,38 @@ public class CardService(AppDbContext db, ILogger<CardService> logger) : ICardSe
         if (request.Description is not null) card.Description = request.Description;
         if (request.Position.HasValue) card.Position = request.Position.Value;
 
-        await db.SaveChangesAsync();
+        await db.SaveChangesAsync(ct);
         return ServiceResult<CardResponse>.Ok(MapToResponse(card));
     }
 
-    public async Task<ServiceResult<bool>> DeleteCardAsync(int boardId, int columnId, int cardId, int userId, bool isAdmin = false)
+    public async Task<ServiceResult> DeleteCardAsync(int boardId, int columnId, int cardId, int userId, bool isAdmin = false, CancellationToken ct = default)
     {
-        if (!isAdmin && !await IsBoardMemberAsync(boardId, userId))
-            return await BoardExistsAsync(boardId)
-                ? ServiceResult<bool>.Forbidden()
-                : ServiceResult<bool>.NotFound();
+        if (await CheckBoardAccessAsync(boardId, userId, isAdmin, ct) is { } denied)
+            return new ServiceResult(denied);
 
         var card = await db.Cards
-            .FirstOrDefaultAsync(c => c.Id == cardId && c.ColumnId == columnId && c.Column.BoardId == boardId);
+            .FirstOrDefaultAsync(c => c.Id == cardId && c.ColumnId == columnId && c.Column.BoardId == boardId, ct);
 
-        if (card is null) return ServiceResult<bool>.NotFound();
+        if (card is null) return ServiceResult.NotFound();
 
         db.Cards.Remove(card);
-        await db.SaveChangesAsync();
+        await db.SaveChangesAsync(ct);
         logger.LogInformation("Deleted card {CardId}", cardId);
-        return ServiceResult<bool>.Ok(true);
+        return ServiceResult.Ok();
     }
 
-    public async Task<ServiceResult<CardResponse>> MoveCardAsync(int boardId, int columnId, int cardId, MoveCardRequest request, int userId, bool isAdmin = false)
+    public async Task<ServiceResult<CardResponse>> MoveCardAsync(int boardId, int columnId, int cardId, MoveCardRequest request, int userId, bool isAdmin = false, CancellationToken ct = default)
     {
-        if (!isAdmin && !await IsBoardMemberAsync(boardId, userId))
-            return await BoardExistsAsync(boardId)
-                ? ServiceResult<CardResponse>.Forbidden()
-                : ServiceResult<CardResponse>.NotFound();
+        if (await CheckBoardAccessAsync(boardId, userId, isAdmin, ct) is { } denied)
+            return new ServiceResult<CardResponse>(default, denied);
 
         var card = await db.Cards
             .Include(c => c.StateHistory)
-            .FirstOrDefaultAsync(c => c.Id == cardId && c.ColumnId == columnId && c.Column.BoardId == boardId);
+            .FirstOrDefaultAsync(c => c.Id == cardId && c.ColumnId == columnId && c.Column.BoardId == boardId, ct);
 
         if (card is null) return ServiceResult<CardResponse>.NotFound();
 
-        var targetColumn = await db.Columns.FirstOrDefaultAsync(c => c.Id == request.TargetColumnId && c.BoardId == boardId);
+        var targetColumn = await db.Columns.FirstOrDefaultAsync(c => c.Id == request.TargetColumnId && c.BoardId == boardId, ct);
         if (targetColumn is null) return ServiceResult<CardResponse>.NotFound();
 
         var now = DateTime.UtcNow;
@@ -123,7 +113,7 @@ public class CardService(AppDbContext db, ILogger<CardService> logger) : ICardSe
         var openState = card.StateHistory.FirstOrDefault(h => h.ExitedAt is null);
         if (openState is not null) openState.ExitedAt = now;
 
-        db.CardStateHistories.Add(new CardStateHistory
+        card.StateHistory.Add(new CardStateHistory
         {
             CardId = card.Id,
             ColumnId = request.TargetColumnId,
@@ -134,17 +124,17 @@ public class CardService(AppDbContext db, ILogger<CardService> logger) : ICardSe
         card.ColumnId = request.TargetColumnId;
         card.Position = request.Position;
 
-        await db.SaveChangesAsync();
+        await db.SaveChangesAsync(ct);
         logger.LogInformation("Moved card {CardId} to column {TargetColumnId}", cardId, request.TargetColumnId);
-        return ServiceResult<CardResponse>.Ok(await LoadCardResponseAsync(card.Id));
+        return ServiceResult<CardResponse>.Ok(MapToResponse(card));
     }
 
-    private async Task<CardResponse> LoadCardResponseAsync(int cardId)
+    private async Task<ServiceStatus?> CheckBoardAccessAsync(int boardId, int userId, bool isAdmin, CancellationToken ct)
     {
-        var card = await db.Cards
-            .Include(c => c.StateHistory)
-            .FirstAsync(c => c.Id == cardId);
-        return MapToResponse(card);
+        if (isAdmin) return null;
+        if (!await db.BoardMembers.AnyAsync(m => m.BoardId == boardId && m.UserId == userId, ct))
+            return await db.Boards.AnyAsync(b => b.Id == boardId, ct) ? ServiceStatus.Forbidden : ServiceStatus.NotFound;
+        return null;
     }
 
     private static CardResponse MapToResponse(Card card) => new(
@@ -163,10 +153,4 @@ public class CardService(AppDbContext db, ILogger<CardService> logger) : ICardSe
                 h.ExitedAt,
                 h.ExitedAt.HasValue ? DateOnly.FromDateTime(h.ExitedAt.Value) : null))
     );
-
-    private async Task<bool> IsBoardMemberAsync(int boardId, int userId) =>
-        await db.BoardMembers.AnyAsync(m => m.BoardId == boardId && m.UserId == userId);
-
-    private async Task<bool> BoardExistsAsync(int boardId) =>
-        await db.Boards.AnyAsync(b => b.Id == boardId);
 }

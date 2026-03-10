@@ -131,6 +131,30 @@ public class ColumnsControllerTests(KanbanApiFactory factory) : IClassFixture<Ka
     }
 
     [Fact]
+    public async Task CreateColumn_WithWipLimit_StoresAndReturnsWipLimit()
+    {
+        var board = await CreateBoardAsync();
+        var response = await _client.PostAsJsonAsync($"/boards/{board.Id}/columns", new CreateColumnRequest("Limited", 3));
+        Assert.Equal(HttpStatusCode.Created, response.StatusCode);
+        var column = await response.Content.ReadFromJsonAsync<ColumnResponse>();
+        Assert.Equal(3, column!.WipLimit);
+    }
+
+    [Fact]
+    public async Task UpdateColumn_SetWipLimit_ReturnsUpdatedWipLimit()
+    {
+        var board = await CreateBoardAsync();
+        var createResponse = await _client.PostAsJsonAsync($"/boards/{board.Id}/columns", new CreateColumnRequest("No Limit"));
+        var column = await createResponse.Content.ReadFromJsonAsync<ColumnResponse>();
+        Assert.Null(column!.WipLimit);
+
+        var response = await _client.PutAsJsonAsync($"/boards/{board.Id}/columns/{column.Id}", new UpdateColumnRequest(null, null, 5));
+        Assert.Equal(HttpStatusCode.OK, response.StatusCode);
+        var updated = await response.Content.ReadFromJsonAsync<ColumnResponse>();
+        Assert.Equal(5, updated!.WipLimit);
+    }
+
+    [Fact]
     public async Task GetColumns_AsAdmin_CanAccessAnyBoard()
     {
         // Create a second admin who owns a board (first admin is not a member)

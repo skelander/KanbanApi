@@ -195,6 +195,24 @@ public class BoardsControllerTests(KanbanApiFactory factory) : IClassFixture<Kan
     }
 
     [Fact]
+    public async Task DeleteBoard_WithMembersColumnsAndCards_ReturnsNoContent()
+    {
+        var board = await CreateBoardAsync("Cascade Board");
+        var user = await CreateUserAsync($"cascade_{Guid.NewGuid():N}");
+        var token = await AdminTokenAsync();
+        _client.SetBearer(token);
+        await _client.PostAsJsonAsync($"/boards/{board.Id}/members", new AddMemberRequest(user.Id));
+        var column = board.Columns.First();
+        await _client.PostAsJsonAsync($"/boards/{board.Id}/columns/{column.Id}/cards", new CreateCardRequest("A card", null));
+
+        var response = await _client.DeleteAsync($"/boards/{board.Id}");
+        Assert.Equal(HttpStatusCode.NoContent, response.StatusCode);
+
+        var getResponse = await _client.GetAsync($"/boards/{board.Id}");
+        Assert.Equal(HttpStatusCode.NotFound, getResponse.StatusCode);
+    }
+
+    [Fact]
     public async Task GetBoards_AsAdmin_ReturnsAllBoards()
     {
         var adminToken = await AdminTokenAsync();

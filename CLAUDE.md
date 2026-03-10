@@ -15,7 +15,7 @@ ASP.NET Core REST API for managing Kanban boards with multi-user access, JWT aut
 KanbanApi/
   Controllers/   AuthController, BoardsController, ColumnsController, CardsController
   Services/      IAuthService, IBoardService, IColumnService, ICardService + implementations
-  Models/        User, Board, BoardMember, Column, Card, CardStateHistory, Dtos.cs
+  Models/        User, Board, BoardMember, Column, Card, CardStateHistory, JwtSettings, Dtos.cs
   Data/          AppDbContext
   Program.cs     DI, JWT setup, CORS, EnsureCreated, admin seeding
 
@@ -38,14 +38,16 @@ KanbanApi.Tests/
 - `GET/PUT/DELETE /boards/{id}` — member or admin (update/delete: owner or admin)
 - `GET/POST /boards/{id}/members` — member or admin (POST: owner or admin)
 - `DELETE /boards/{id}/members/{userId}` — owner or admin (cannot remove owner)
-- `GET/POST/PUT/DELETE /boards/{boardId}/columns/{columnId}` — member or admin
-- `GET/POST/PUT/DELETE /boards/{boardId}/columns/{columnId}/cards/{cardId}` — member or admin
+- `GET/POST /boards/{boardId}/columns` — member or admin
+- `PUT/DELETE /boards/{boardId}/columns/{columnId}` — member or admin
+- `GET/POST /boards/{boardId}/columns/{columnId}/cards` — member or admin
+- `PUT/DELETE /boards/{boardId}/columns/{columnId}/cards/{cardId}` — member or admin
 - `PUT /boards/{boardId}/columns/{columnId}/cards/{cardId}/move` — member or admin
 - `GET /health` — public
 
 ## Architecture
 - Controllers depend on interfaces only
-- `ServiceResult<T>` pattern with `Ok/NotFound/Forbidden/Conflict` statuses — services return these, controllers map to HTTP
+- `ServiceResult<T>` pattern with `Ok/NotFound/Forbidden/Conflict` statuses — services return these, controllers map to HTTP; delete/void operations use the non-generic `ServiceResult`
 - `isAdmin` flag on all service methods — admin users bypass membership checks
 - JWT: HMAC-SHA256, 8h expiry, claims: NameIdentifier (userId), Name, Role
 - CORS: allows `https://skelander.github.io` and `http://localhost:5173`
@@ -82,7 +84,7 @@ Every card has a `CardStateHistory` collection tracking column transitions:
 Additional users created via `POST /auth/users` (admin only). Allowed roles: `user`, `admin`.
 
 ## Testing
-- 48 integration tests, all using `IClassFixture<KanbanApiFactory>`
+- 54 integration tests, all using `IClassFixture<KanbanApiFactory>`
 - `KanbanApiFactory`: SQLite :memory: kept-open connection, test JWT key override
 - Test command: `dotnet test KanbanApi.slnx`
 - dotnet at `C:\Program Files\dotnet\dotnet.exe` (not on PATH in bash — use PowerShell or full path)

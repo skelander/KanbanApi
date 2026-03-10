@@ -217,6 +217,36 @@ public class CardsControllerTests(KanbanApiFactory factory) : IClassFixture<Kanb
     }
 
     [Fact]
+    public async Task UpdateCard_ChangePosition_ReturnsUpdatedPosition()
+    {
+        var (board, column) = await SetupAsync();
+        var created = await (await _client.PostAsJsonAsync(
+            $"/boards/{board.Id}/columns/{column.Id}/cards",
+            new CreateCardRequest("Card", null))).Content.ReadFromJsonAsync<CardResponse>();
+        var response = await _client.PutAsJsonAsync(
+            $"/boards/{board.Id}/columns/{column.Id}/cards/{created!.Id}",
+            new UpdateCardRequest(null, null, 5));
+        Assert.Equal(HttpStatusCode.OK, response.StatusCode);
+        var updated = await response.Content.ReadFromJsonAsync<CardResponse>();
+        Assert.Equal(5, updated!.Position);
+    }
+
+    [Fact]
+    public async Task MoveCard_ToSameColumn_ReturnsOk()
+    {
+        var (board, column) = await SetupAsync();
+        var created = await (await _client.PostAsJsonAsync(
+            $"/boards/{board.Id}/columns/{column.Id}/cards",
+            new CreateCardRequest("Same Column Card", null))).Content.ReadFromJsonAsync<CardResponse>();
+        var response = await _client.PutAsJsonAsync(
+            $"/boards/{board.Id}/columns/{column.Id}/cards/{created!.Id}/move",
+            new MoveCardRequest(column.Id, 0));
+        Assert.Equal(HttpStatusCode.OK, response.StatusCode);
+        var moved = await response.Content.ReadFromJsonAsync<CardResponse>();
+        Assert.Equal(column.Id, moved!.ColumnId);
+    }
+
+    [Fact]
     public async Task MoveCard_ToColumnOnDifferentBoard_ReturnsNotFound()
     {
         var (board, column) = await SetupAsync();

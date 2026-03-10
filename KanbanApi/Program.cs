@@ -35,6 +35,8 @@ if (string.IsNullOrEmpty(jwtIssuer))
 var jwtAudience = builder.Configuration["Jwt:Audience"];
 if (string.IsNullOrEmpty(jwtAudience))
     throw new InvalidOperationException("Jwt:Audience is not configured.");
+builder.Services.Configure<KanbanApi.Models.JwtSettings>(builder.Configuration.GetSection("Jwt"));
+
 builder.Services.AddAuthentication(JwtBearerDefaults.AuthenticationScheme)
     .AddJwtBearer(options =>
     {
@@ -81,7 +83,10 @@ using (var scope = app.Services.CreateScope())
         await db.Database.ExecuteSqlRawAsync(
             "ALTER TABLE CardStateHistories ADD COLUMN ColumnName TEXT NOT NULL DEFAULT ''");
     }
-    catch { /* Column already exists */ }
+    catch (Microsoft.Data.Sqlite.SqliteException ex) when (ex.Message.Contains("duplicate column name"))
+    {
+        // Column already exists — expected on subsequent starts
+    }
 
     if (!await db.Users.AnyAsync())
     {
@@ -96,6 +101,13 @@ using (var scope = app.Services.CreateScope())
 }
 
 app.UseRateLimiter();
+app.UseExceptionHandler(errApp =>
+    errApp.Run(async ctx =>
+    {
+        ctx.Response.StatusCode = StatusCodes.Status500InternalServerError;
+        ctx.Response.ContentType = "application/json";
+        await ctx.Response.WriteAsync("{\"error\":\"An unexpected error occurred.\"}");
+    }));
 app.UseCors();
 app.UseAuthentication();
 app.UseAuthorization();

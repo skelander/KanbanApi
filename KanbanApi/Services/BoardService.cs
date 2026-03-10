@@ -7,15 +7,15 @@ namespace KanbanApi.Services;
 
 public class BoardService(AppDbContext db, ILogger<BoardService> logger) : IBoardService
 {
-    public async Task<IEnumerable<BoardSummaryResponse>> GetBoardsForUserAsync(int userId, bool isAdmin = false)
+    public async Task<IEnumerable<BoardSummaryResponse>> GetBoardsForUserAsync(int userId, bool isAdmin = false, CancellationToken ct = default)
     {
         return await db.Boards
             .Where(b => isAdmin || b.Members.Any(m => m.UserId == userId))
             .Select(b => new BoardSummaryResponse(b.Id, b.Name, b.Description, b.OwnerId, b.Owner.Username))
-            .ToListAsync();
+            .ToListAsync(ct);
     }
 
-    public async Task<ServiceResult<BoardResponse>> GetBoardAsync(int boardId, int userId, bool isAdmin = false)
+    public async Task<ServiceResult<BoardResponse>> GetBoardAsync(int boardId, int userId, bool isAdmin = false, CancellationToken ct = default)
     {
         var board = await db.Boards
             .Include(b => b.Owner)
@@ -23,7 +23,7 @@ public class BoardService(AppDbContext db, ILogger<BoardService> logger) : IBoar
             .Include(b => b.Columns.OrderBy(c => c.Position))
                 .ThenInclude(c => c.Cards.OrderBy(card => card.Position))
                     .ThenInclude(card => card.StateHistory)
-            .FirstOrDefaultAsync(b => b.Id == boardId);
+            .FirstOrDefaultAsync(b => b.Id == boardId, ct);
 
         if (board is null) return ServiceResult<BoardResponse>.NotFound();
         if (!isAdmin && !board.Members.Any(m => m.UserId == userId))
@@ -32,9 +32,9 @@ public class BoardService(AppDbContext db, ILogger<BoardService> logger) : IBoar
         return ServiceResult<BoardResponse>.Ok(MapToResponse(board));
     }
 
-    public async Task<ServiceResult<BoardResponse>> CreateBoardAsync(CreateBoardRequest request, int userId, string ownerUsername, string ownerRole)
+    public async Task<ServiceResult<BoardResponse>> CreateBoardAsync(CreateBoardRequest request, int userId, string ownerUsername, string ownerRole, CancellationToken ct = default)
     {
-        await using var transaction = await db.Database.BeginTransactionAsync();
+        await using var transaction = await db.Database.BeginTransactionAsync(ct);
 
         var board = new Board
         {
@@ -44,7 +44,7 @@ public class BoardService(AppDbContext db, ILogger<BoardService> logger) : IBoar
         };
 
         db.Boards.Add(board);
-        await db.SaveChangesAsync();
+        await db.SaveChangesAsync(ct);
 
         db.BoardMembers.Add(new BoardMember { BoardId = board.Id, UserId = userId });
 
@@ -57,8 +57,8 @@ public class BoardService(AppDbContext db, ILogger<BoardService> logger) : IBoar
             columns.Add(col);
         }
 
-        await db.SaveChangesAsync();
-        await transaction.CommitAsync();
+        await db.SaveChangesAsync(ct);
+        await transaction.CommitAsync(ct);
 
         logger.LogInformation("Created board {BoardName} for user {UserId}", board.Name, userId);
 
@@ -73,7 +73,7 @@ public class BoardService(AppDbContext db, ILogger<BoardService> logger) : IBoar
         ));
     }
 
-    public async Task<ServiceResult<BoardResponse>> UpdateBoardAsync(int boardId, UpdateBoardRequest request, int userId, bool isAdmin = false)
+    public async Task<ServiceResult<BoardResponse>> UpdateBoardAsync(int boardId, UpdateBoardRequest request, int userId, bool isAdmin = false, CancellationToken ct = default)
     {
         var board = await db.Boards
             .Include(b => b.Owner)
@@ -81,7 +81,7 @@ public class BoardService(AppDbContext db, ILogger<BoardService> logger) : IBoar
             .Include(b => b.Columns.OrderBy(c => c.Position))
                 .ThenInclude(c => c.Cards.OrderBy(card => card.Position))
                     .ThenInclude(card => card.StateHistory)
-            .FirstOrDefaultAsync(b => b.Id == boardId);
+            .FirstOrDefaultAsync(b => b.Id == boardId, ct);
 
         if (board is null) return ServiceResult<BoardResponse>.NotFound();
         if (!isAdmin && board.OwnerId != userId) return ServiceResult<BoardResponse>.Forbidden();
@@ -89,28 +89,28 @@ public class BoardService(AppDbContext db, ILogger<BoardService> logger) : IBoar
         if (request.Name is not null) board.Name = request.Name;
         if (request.Description is not null) board.Description = request.Description;
 
-        await db.SaveChangesAsync();
+        await db.SaveChangesAsync(ct);
         logger.LogInformation("Updated board {BoardId}", boardId);
         return ServiceResult<BoardResponse>.Ok(MapToResponse(board));
     }
 
-    public async Task<ServiceResult<bool>> DeleteBoardAsync(int boardId, int userId, bool isAdmin = false)
+    public async Task<ServiceResult> DeleteBoardAsync(int boardId, int userId, bool isAdmin = false, CancellationToken ct = default)
     {
-        var board = await db.Boards.FindAsync(boardId);
-        if (board is null) return ServiceResult<bool>.NotFound();
-        if (!isAdmin && board.OwnerId != userId) return ServiceResult<bool>.Forbidden();
+        var board = await db.Boards.FindAsync([boardId], ct);
+        if (board is null) return ServiceResult.NotFound();
+        if (!isAdmin && board.OwnerId != userId) return ServiceResult.Forbidden();
 
         db.Boards.Remove(board);
-        await db.SaveChangesAsync();
+        await db.SaveChangesAsync(ct);
         logger.LogInformation("Deleted board {BoardId}", boardId);
-        return ServiceResult<bool>.Ok(true);
+        return ServiceResult.Ok();
     }
 
-    public async Task<ServiceResult<IEnumerable<UserResponse>>> GetMembersAsync(int boardId, int userId, bool isAdmin = false)
+    public async Task<ServiceResult<IEnumerable<UserResponse>>> GetMembersAsync(int boardId, int userId, bool isAdmin = false, CancellationToken ct = default)
     {
         var board = await db.Boards
             .Include(b => b.Members).ThenInclude(m => m.User)
-            .FirstOrDefaultAsync(b => b.Id == boardId);
+            .FirstOrDefaultAsync(b => b.Id == boardId, ct);
 
         if (board is null) return ServiceResult<IEnumerable<UserResponse>>.NotFound();
         if (!isAdmin && !board.Members.Any(m => m.UserId == userId))
@@ -120,44 +120,44 @@ public class BoardService(AppDbContext db, ILogger<BoardService> logger) : IBoar
         return ServiceResult<IEnumerable<UserResponse>>.Ok(members);
     }
 
-    public async Task<ServiceResult<bool>> AddMemberAsync(int boardId, int targetUserId, int requestingUserId, bool isAdmin = false)
+    public async Task<ServiceResult> AddMemberAsync(int boardId, int targetUserId, int requestingUserId, bool isAdmin = false, CancellationToken ct = default)
     {
         var board = await db.Boards
             .Include(b => b.Members)
-            .FirstOrDefaultAsync(b => b.Id == boardId);
+            .FirstOrDefaultAsync(b => b.Id == boardId, ct);
 
-        if (board is null) return ServiceResult<bool>.NotFound();
-        if (!isAdmin && board.OwnerId != requestingUserId) return ServiceResult<bool>.Forbidden();
+        if (board is null) return ServiceResult.NotFound();
+        if (!isAdmin && board.OwnerId != requestingUserId) return ServiceResult.Forbidden();
 
         if (board.Members.Any(m => m.UserId == targetUserId))
-            return ServiceResult<bool>.Ok(true);
+            return ServiceResult.Ok();
 
-        var targetUser = await db.Users.FindAsync(targetUserId);
-        if (targetUser is null) return ServiceResult<bool>.NotFound();
+        var targetUser = await db.Users.FindAsync([targetUserId], ct);
+        if (targetUser is null) return ServiceResult.NotFound();
 
         db.BoardMembers.Add(new BoardMember { BoardId = boardId, UserId = targetUserId });
-        await db.SaveChangesAsync();
+        await db.SaveChangesAsync(ct);
         logger.LogInformation("Added user {UserId} to board {BoardId}", targetUserId, boardId);
-        return ServiceResult<bool>.Ok(true);
+        return ServiceResult.Ok();
     }
 
-    public async Task<ServiceResult<bool>> RemoveMemberAsync(int boardId, int targetUserId, int requestingUserId, bool isAdmin = false)
+    public async Task<ServiceResult> RemoveMemberAsync(int boardId, int targetUserId, int requestingUserId, bool isAdmin = false, CancellationToken ct = default)
     {
         var board = await db.Boards
             .Include(b => b.Members)
-            .FirstOrDefaultAsync(b => b.Id == boardId);
+            .FirstOrDefaultAsync(b => b.Id == boardId, ct);
 
-        if (board is null) return ServiceResult<bool>.NotFound();
-        if (!isAdmin && board.OwnerId != requestingUserId) return ServiceResult<bool>.Forbidden();
-        if (board.OwnerId == targetUserId) return ServiceResult<bool>.Forbidden();
+        if (board is null) return ServiceResult.NotFound();
+        if (!isAdmin && board.OwnerId != requestingUserId) return ServiceResult.Forbidden();
+        if (board.OwnerId == targetUserId) return ServiceResult.Forbidden();
 
         var member = board.Members.FirstOrDefault(m => m.UserId == targetUserId);
-        if (member is null) return ServiceResult<bool>.NotFound();
+        if (member is null) return ServiceResult.NotFound();
 
         db.BoardMembers.Remove(member);
-        await db.SaveChangesAsync();
+        await db.SaveChangesAsync(ct);
         logger.LogInformation("Removed user {UserId} from board {BoardId}", targetUserId, boardId);
-        return ServiceResult<bool>.Ok(true);
+        return ServiceResult.Ok();
     }
 
     private static BoardResponse MapToResponse(Board board) => new(

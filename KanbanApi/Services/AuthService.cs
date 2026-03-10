@@ -5,15 +5,16 @@ using KanbanApi.Data;
 using KanbanApi.Models;
 using Microsoft.EntityFrameworkCore;
 using Microsoft.Extensions.Logging;
+using Microsoft.Extensions.Options;
 using Microsoft.IdentityModel.Tokens;
 
 namespace KanbanApi.Services;
 
-public class AuthService(AppDbContext db, IConfiguration config, ILogger<AuthService> logger) : IAuthService
+public class AuthService(AppDbContext db, IOptions<JwtSettings> jwtOptions, ILogger<AuthService> logger) : IAuthService
 {
-    public async Task<string?> LoginAsync(string username, string password)
+    public async Task<string?> LoginAsync(string username, string password, CancellationToken ct = default)
     {
-        var user = await db.Users.FirstOrDefaultAsync(u => u.Username == username);
+        var user = await db.Users.FirstOrDefaultAsync(u => u.Username == username, ct);
         if (user is null || !BCrypt.Net.BCrypt.Verify(password, user.PasswordHash))
         {
             logger.LogWarning("Failed login attempt for username {Username}", username);
@@ -24,12 +25,9 @@ public class AuthService(AppDbContext db, IConfiguration config, ILogger<AuthSer
         return GenerateToken(user);
     }
 
-    public async Task<ServiceResult<UserResponse>> CreateUserAsync(CreateUserRequest request)
+    public async Task<ServiceResult<UserResponse>> CreateUserAsync(CreateUserRequest request, CancellationToken ct = default)
     {
-        if (!CreateUserRequest.AllowedRoles.Contains(request.Role))
-            return ServiceResult<UserResponse>.Forbidden();
-
-        if (await db.Users.AnyAsync(u => u.Username == request.Username))
+        if (await db.Users.AnyAsync(u => u.Username == request.Username, ct))
         {
             logger.LogWarning("Attempted to create duplicate user {Username}", request.Username);
             return ServiceResult<UserResponse>.Conflict();
@@ -43,43 +41,44 @@ public class AuthService(AppDbContext db, IConfiguration config, ILogger<AuthSer
         };
 
         db.Users.Add(user);
-        await db.SaveChangesAsync();
+        await db.SaveChangesAsync(ct);
 
         logger.LogInformation("Created user {Username} with role {Role}", user.Username, user.Role);
         return ServiceResult<UserResponse>.Ok(new UserResponse(user.Id, user.Username, user.Role));
     }
 
-    public async Task<IEnumerable<UserResponse>> GetUsersAsync()
+    public async Task<IEnumerable<UserResponse>> GetUsersAsync(CancellationToken ct = default)
     {
         return await db.Users
             .Select(u => new UserResponse(u.Id, u.Username, u.Role))
-            .ToListAsync();
+            .ToListAsync(ct);
     }
 
-    public async Task<ServiceResult<bool>> DeleteUserAsync(int id)
+    public async Task<ServiceResult> DeleteUserAsync(int id, CancellationToken ct = default)
     {
-        var user = await db.Users.FindAsync(id);
-        if (user is null) return ServiceResult<bool>.NotFound();
+        var user = await db.Users.FindAsync([id], ct);
+        if (user is null) return ServiceResult.NotFound();
 
         if (user.Role == "admin")
         {
-            var adminCount = await db.Users.CountAsync(u => u.Role == "admin");
+            var adminCount = await db.Users.CountAsync(u => u.Role == "admin", ct);
             if (adminCount <= 1)
             {
                 logger.LogWarning("Attempted to delete last admin user {Username}", user.Username);
-                return ServiceResult<bool>.Conflict();
+                return ServiceResult.Conflict();
             }
         }
 
         db.Users.Remove(user);
-        await db.SaveChangesAsync();
+        await db.SaveChangesAsync(ct);
         logger.LogInformation("Deleted user {Username}", user.Username);
-        return ServiceResult<bool>.Ok(true);
+        return ServiceResult.Ok();
     }
 
     private string GenerateToken(User user)
     {
-        var key = new SymmetricSecurityKey(Encoding.UTF8.GetBytes(config["Jwt:Key"]!));
+        var jwt = jwtOptions.Value;
+        var key = new SymmetricSecurityKey(Encoding.UTF8.GetBytes(jwt.Key));
         var creds = new SigningCredentials(key, SecurityAlgorithms.HmacSha256);
 
         var claims = new[]
@@ -90,8 +89,8 @@ public class AuthService(AppDbContext db, IConfiguration config, ILogger<AuthSer
         };
 
         var token = new JwtSecurityToken(
-            issuer: config["Jwt:Issuer"],
-            audience: config["Jwt:Audience"],
+            issuer: jwt.Issuer,
+            audience: jwt.Audience,
             claims: claims,
             expires: DateTime.UtcNow.AddHours(8),
             signingCredentials: creds);

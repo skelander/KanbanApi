@@ -36,5 +36,9 @@ public class AppDbContext(DbContextOptions<AppDbContext> options) : DbContext(op
         modelBuilder.Entity<User>()
             .HasIndex(u => u.Username)
             .IsUnique();
+
+        modelBuilder.Entity<Card>().HasIndex(c => c.ColumnId);
+        modelBuilder.Entity<Column>().HasIndex(c => c.BoardId);
+        modelBuilder.Entity<CardStateHistory>().HasIndex(h => h.CardId);
     }
 }

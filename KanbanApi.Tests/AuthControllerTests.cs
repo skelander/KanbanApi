@@ -110,4 +110,13 @@ public class AuthControllerTests(KanbanApiFactory factory) : IClassFixture<Kanba
         var response = await _client.DeleteAsync($"/auth/users/{admin.Id}");
         Assert.Equal(HttpStatusCode.Conflict, response.StatusCode);
     }
+
+    [Fact]
+    public async Task CreateUser_WithShortPassword_ReturnsBadRequest()
+    {
+        var token = await Helpers.LoginAsync(_client, "admin", "admin");
+        _client.SetBearer(token);
+        var response = await _client.PostAsJsonAsync("/auth/users", new CreateUserRequest("anyuser", "abc", "user"));
+        Assert.Equal(HttpStatusCode.BadRequest, response.StatusCode);
+    }
 }
