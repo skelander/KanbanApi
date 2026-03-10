@@ -20,7 +20,7 @@ public class ColumnService(AppDbContext db, ILogger<ColumnService> logger) : ICo
 
         var columns = board.Columns
             .OrderBy(c => c.Position)
-            .Select(c => new ColumnResponse(c.Id, c.Name, c.Position, c.WipLimit, c.BoardId));
+            .Select(c => new ColumnResponse(c.Id, c.Name, c.Position, c.WipLimit, c.BoardId, []));
 
         return ServiceResult<IEnumerable<ColumnResponse>>.Ok(columns);
     }
@@ -43,7 +43,7 @@ public class ColumnService(AppDbContext db, ILogger<ColumnService> logger) : ICo
         await db.SaveChangesAsync();
 
         logger.LogInformation("Created column {ColumnName} on board {BoardId}", column.Name, boardId);
-        return ServiceResult<ColumnResponse>.Ok(new ColumnResponse(column.Id, column.Name, column.Position, column.WipLimit, column.BoardId));
+        return ServiceResult<ColumnResponse>.Ok(new ColumnResponse(column.Id, column.Name, column.Position, column.WipLimit, column.BoardId, []));
     }
 
     public async Task<ServiceResult<ColumnResponse>> UpdateColumnAsync(int boardId, int columnId, UpdateColumnRequest request, int userId, bool isAdmin = false)
@@ -65,7 +65,7 @@ public class ColumnService(AppDbContext db, ILogger<ColumnService> logger) : ICo
         if (request.WipLimit.HasValue) column.WipLimit = request.WipLimit.Value;
 
         await db.SaveChangesAsync();
-        return ServiceResult<ColumnResponse>.Ok(new ColumnResponse(column.Id, column.Name, column.Position, column.WipLimit, column.BoardId));
+        return ServiceResult<ColumnResponse>.Ok(new ColumnResponse(column.Id, column.Name, column.Position, column.WipLimit, column.BoardId, []));
     }
 
     public async Task<ServiceResult<bool>> DeleteColumnAsync(int boardId, int columnId, int userId, bool isAdmin = false)

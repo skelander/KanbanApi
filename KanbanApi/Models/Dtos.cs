@@ -43,7 +43,7 @@ public record UpdateColumnRequest(
     [Range(0, int.MaxValue)] int? Position,
     [Range(1, 1000)] int? WipLimit);
 
-public record ColumnResponse(int Id, string Name, int Position, int? WipLimit, int BoardId);
+public record ColumnResponse(int Id, string Name, int Position, int? WipLimit, int BoardId, IEnumerable<CardResponse> Cards);
 
 // Cards
 public record CreateCardRequest(

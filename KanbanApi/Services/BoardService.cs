@@ -21,6 +21,9 @@ public class BoardService(AppDbContext db, ILogger<BoardService> logger) : IBoar
             .Include(b => b.Owner)
             .Include(b => b.Members).ThenInclude(m => m.User)
             .Include(b => b.Columns.OrderBy(c => c.Position))
+                .ThenInclude(c => c.Cards.OrderBy(card => card.Position))
+                    .ThenInclude(card => card.StateHistory)
+                        .ThenInclude(h => h.Column)
             .FirstOrDefaultAsync(b => b.Id == boardId);
 
         if (board is null) return ServiceResult<BoardResponse>.NotFound();
@@ -67,7 +70,7 @@ public class BoardService(AppDbContext db, ILogger<BoardService> logger) : IBoar
             board.OwnerId,
             ownerUsername,
             [new UserResponse(userId, ownerUsername, ownerRole)],
-            columns.Select(c => new ColumnResponse(c.Id, c.Name, c.Position, c.WipLimit, c.BoardId))
+            columns.Select(c => new ColumnResponse(c.Id, c.Name, c.Position, c.WipLimit, c.BoardId, []))
         );
     }
 
@@ -163,6 +166,16 @@ public class BoardService(AppDbContext db, ILogger<BoardService> logger) : IBoar
         board.OwnerId,
         board.Owner.Username,
         board.Members.Select(m => new UserResponse(m.User.Id, m.User.Username, m.User.Role)),
-        board.Columns.Select(c => new ColumnResponse(c.Id, c.Name, c.Position, c.WipLimit, c.BoardId))
+        board.Columns.Select(c => new ColumnResponse(c.Id, c.Name, c.Position, c.WipLimit, c.BoardId,
+            c.Cards.Select(card => new CardResponse(card.Id, card.Title, card.Description, card.Position, card.ColumnId,
+                card.StateHistory
+                    .OrderBy(h => h.EnteredAt)
+                    .Select(h => new CardStateHistoryResponse(
+                        h.ColumnId,
+                        h.Column.Name,
+                        h.EnteredAt,
+                        DateOnly.FromDateTime(h.EnteredAt),
+                        h.ExitedAt,
+                        h.ExitedAt.HasValue ? DateOnly.FromDateTime(h.ExitedAt.Value) : null))))))
     );
 }
