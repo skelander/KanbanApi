@@ -33,8 +33,8 @@ KanbanApi.Tests/
 - `GET /auth/users` — admin only
 - `POST /auth/users` — admin only
 - `DELETE /auth/users/{id}` — admin only (cannot delete last admin)
-- `GET /boards` — authenticated, returns boards where user is a member
-- `POST /boards` — authenticated, auto-creates To Do / Doing / Done columns
+- `GET /boards` — authenticated; members see their own boards, admins see all boards
+- `POST /boards` — admin only, auto-creates To Do / Doing / Done columns
 - `GET/PUT/DELETE /boards/{id}` — member or admin (update/delete: owner or admin)
 - `GET/POST /boards/{id}/members` — member or admin (POST: owner or admin)
 - `DELETE /boards/{id}/members/{userId}` — owner or admin (cannot remove owner)
@@ -72,6 +72,7 @@ Every card has a `CardStateHistory` collection tracking column transitions:
 | `Jwt:Key` | Signing key — empty in appsettings.json, dev key in appsettings.Development.json, production set via Fly.io secret `Jwt__Key` |
 | `Jwt:Issuer` | `KanbanApi` |
 | `Jwt:Audience` | `KanbanApi` |
+| `RateLimit:LoginPermitLimit` | Max login requests per IP per minute (default: 10; tests override to 1000) |
 
 ## Seeded Users
 | Username | Password | Role  |
@@ -81,7 +82,7 @@ Every card has a `CardStateHistory` collection tracking column transitions:
 Additional users created via `POST /auth/users` (admin only). Allowed roles: `user`, `admin`.
 
 ## Testing
-- 39 integration tests, all using `IClassFixture<KanbanApiFactory>`
+- 48 integration tests, all using `IClassFixture<KanbanApiFactory>`
 - `KanbanApiFactory`: SQLite :memory: kept-open connection, test JWT key override
 - Test command: `dotnet test KanbanApi.slnx`
 - dotnet at `C:\Program Files\dotnet\dotnet.exe` (not on PATH in bash — use PowerShell or full path)

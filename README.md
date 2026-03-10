@@ -35,7 +35,7 @@ The `appsettings.Development.json` (included in the repo) provides a local JWT k
 dotnet test KanbanApi.slnx
 ```
 
-39 integration tests using an in-memory SQLite database. No external dependencies required.
+48 integration tests using an in-memory SQLite database. No external dependencies required.
 
 ## API Endpoints
 
@@ -52,8 +52,8 @@ dotnet test KanbanApi.slnx
 
 | Method | Endpoint | Auth | Description |
 |--------|----------|------|-------------|
-| GET | `/boards` | user | List boards where user is a member |
-| POST | `/boards` | user | Create board (auto-creates To Do / Doing / Done columns) |
+| GET | `/boards` | user/admin | List boards (members see own boards; admin sees all) |
+| POST | `/boards` | admin | Create board (auto-creates To Do / Doing / Done columns) |
 | GET | `/boards/{id}` | member/admin | Get board with columns and members |
 | PUT | `/boards/{id}` | owner/admin | Update board name or description |
 | DELETE | `/boards/{id}` | owner/admin | Delete board |
@@ -119,6 +119,7 @@ User ──< BoardMember >── Board ──< Column ──< Card ──< CardS
 | `Jwt:Key` | HMAC-SHA256 signing key (min 32 chars) | *(set via env var in production)* |
 | `Jwt:Issuer` | JWT issuer | `KanbanApi` |
 | `Jwt:Audience` | JWT audience | `KanbanApi` |
+| `RateLimit:LoginPermitLimit` | Max login requests per IP per minute | `10` |
 
 In production, set `Jwt__Key` as a Fly.io secret:
 ```bash
