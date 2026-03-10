@@ -183,4 +183,33 @@ public class BoardsControllerTests(KanbanApiFactory factory) : IClassFixture<Kan
         var response = await _client.PostAsJsonAsync("/boards", new CreateBoardRequest("Should Fail", null));
         Assert.Equal(HttpStatusCode.Forbidden, response.StatusCode);
     }
+
+    [Fact]
+    public async Task AddMember_WithNonExistentUser_ReturnsNotFound()
+    {
+        var board = await CreateBoardAsync("Member NotFound Board");
+        var token = await AdminTokenAsync();
+        _client.SetBearer(token);
+        var response = await _client.PostAsJsonAsync($"/boards/{board.Id}/members", new AddMemberRequest(99999));
+        Assert.Equal(HttpStatusCode.NotFound, response.StatusCode);
+    }
+
+    [Fact]
+    public async Task GetBoards_AsAdmin_ReturnsAllBoards()
+    {
+        var adminToken = await AdminTokenAsync();
+        _client.SetBearer(adminToken);
+        var admin2Username = $"admin2_{Guid.NewGuid():N}";
+        await _client.PostAsJsonAsync("/auth/users", new CreateUserRequest(admin2Username, "pass1234", "admin"));
+        var admin2Token = await Helpers.LoginAsync(_client, admin2Username, "pass1234");
+        _client.SetBearer(admin2Token);
+        var boardResponse = await _client.PostAsJsonAsync("/boards", new CreateBoardRequest("Admin2 Exclusive Board", null));
+        var admin2Board = (await boardResponse.Content.ReadFromJsonAsync<BoardResponse>())!;
+
+        // First admin (not a member of admin2Board) should still see it
+        _client.SetBearer(adminToken);
+        var response = await _client.GetAsync("/boards");
+        var boards = await response.Content.ReadFromJsonAsync<List<BoardSummaryResponse>>();
+        Assert.Contains(boards!, b => b.Id == admin2Board.Id);
+    }
 }

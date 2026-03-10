@@ -215,4 +215,24 @@ public class CardsControllerTests(KanbanApiFactory factory) : IClassFixture<Kanb
         var response = await _client.GetAsync($"/boards/{board.Id}/columns/{column.Id}/cards");
         Assert.Equal(HttpStatusCode.OK, response.StatusCode);
     }
+
+    [Fact]
+    public async Task MoveCard_ToColumnOnDifferentBoard_ReturnsNotFound()
+    {
+        var (board, column) = await SetupAsync();
+        var card = await (await _client.PostAsJsonAsync(
+            $"/boards/{board.Id}/columns/{column.Id}/cards",
+            new CreateCardRequest("Cross Board Card", null))).Content.ReadFromJsonAsync<CardResponse>();
+
+        // Create a second board and grab one of its default columns
+        var board2Response = await _client.PostAsJsonAsync("/boards", new CreateBoardRequest("Other Board", null));
+        var board2 = (await board2Response.Content.ReadFromJsonAsync<BoardResponse>())!;
+        var otherColumn = board2.Columns.First();
+
+        // Moving to a column that belongs to a different board should return NotFound
+        var response = await _client.PutAsJsonAsync(
+            $"/boards/{board.Id}/columns/{column.Id}/cards/{card!.Id}/move",
+            new MoveCardRequest(otherColumn.Id, 0));
+        Assert.Equal(HttpStatusCode.NotFound, response.StatusCode);
+    }
 }

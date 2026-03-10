@@ -17,7 +17,7 @@ public class BoardsController(IBoardService boardService) : ControllerBase
     [HttpGet]
     public async Task<IActionResult> GetBoards()
     {
-        var boards = await boardService.GetBoardsForUserAsync(UserId);
+        var boards = await boardService.GetBoardsForUserAsync(UserId, IsAdmin);
         return Ok(boards);
     }
 

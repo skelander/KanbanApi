@@ -60,7 +60,7 @@ public class CardService(AppDbContext db, ILogger<CardService> logger) : ICardSe
         await db.SaveChangesAsync();
 
         logger.LogInformation("Created card {CardTitle} in column {ColumnId}", card.Title, columnId);
-        return ServiceResult<CardResponse>.Ok(await LoadCardResponseAsync(card.Id));
+        return ServiceResult<CardResponse>.Ok(MapToResponse(card));
     }
 
     public async Task<ServiceResult<CardResponse>> UpdateCardAsync(int boardId, int columnId, int cardId, UpdateCardRequest request, int userId, bool isAdmin = false)

@@ -34,7 +34,7 @@ public class AuthController(IAuthService authService) : ControllerBase
         var result = await authService.CreateUserAsync(request);
         if (result.IsForbidden) return BadRequest(new { error = $"Invalid role. Allowed values: {string.Join(", ", CreateUserRequest.AllowedRoles)}." });
         if (result.IsConflict) return Conflict(new { error = "Username already exists." });
-        return Created($"/auth/users/{result.Value!.Id}", result.Value);
+        return Created("/auth/users", result.Value);
     }
 
     [Authorize(Roles = "admin")]

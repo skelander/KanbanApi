@@ -7,10 +7,10 @@ namespace KanbanApi.Services;
 
 public class BoardService(AppDbContext db, ILogger<BoardService> logger) : IBoardService
 {
-    public async Task<IEnumerable<BoardSummaryResponse>> GetBoardsForUserAsync(int userId)
+    public async Task<IEnumerable<BoardSummaryResponse>> GetBoardsForUserAsync(int userId, bool isAdmin = false)
     {
         return await db.Boards
-            .Where(b => b.Members.Any(m => m.UserId == userId))
+            .Where(b => isAdmin || b.Members.Any(m => m.UserId == userId))
             .Select(b => new BoardSummaryResponse(b.Id, b.Name, b.Description, b.OwnerId, b.Owner.Username))
             .ToListAsync();
     }
@@ -79,6 +79,8 @@ public class BoardService(AppDbContext db, ILogger<BoardService> logger) : IBoar
             .Include(b => b.Owner)
             .Include(b => b.Members).ThenInclude(m => m.User)
             .Include(b => b.Columns.OrderBy(c => c.Position))
+                .ThenInclude(c => c.Cards.OrderBy(card => card.Position))
+                    .ThenInclude(card => card.StateHistory)
             .FirstOrDefaultAsync(b => b.Id == boardId);
 
         if (board is null) return ServiceResult<BoardResponse>.NotFound();
