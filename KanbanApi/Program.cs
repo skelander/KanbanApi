@@ -75,6 +75,14 @@ using (var scope = app.Services.CreateScope())
     var db = scope.ServiceProvider.GetRequiredService<AppDbContext>();
     db.Database.EnsureCreated();
 
+    // Add ColumnName column if missing (added after initial schema creation)
+    try
+    {
+        await db.Database.ExecuteSqlRawAsync(
+            "ALTER TABLE CardStateHistories ADD COLUMN ColumnName TEXT NOT NULL DEFAULT ''");
+    }
+    catch { /* Column already exists */ }
+
     if (!await db.Users.AnyAsync())
     {
         db.Users.Add(new User
