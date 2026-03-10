@@ -15,7 +15,7 @@ public class CardService(AppDbContext db, ILogger<CardService> logger) : ICardSe
                 : ServiceResult<IEnumerable<CardResponse>>.NotFound();
 
         var column = await db.Columns
-            .Include(c => c.Cards).ThenInclude(c => c.StateHistory).ThenInclude(h => h.Column)
+            .Include(c => c.Cards).ThenInclude(c => c.StateHistory)
             .FirstOrDefaultAsync(c => c.Id == columnId && c.BoardId == boardId);
 
         if (column is null) return ServiceResult<IEnumerable<CardResponse>>.NotFound();
@@ -49,10 +49,10 @@ public class CardService(AppDbContext db, ILogger<CardService> logger) : ICardSe
             ColumnId = columnId
         };
 
-        // Add initial state history via nav property — saved in one round-trip
         card.StateHistory.Add(new CardStateHistory
         {
             ColumnId = columnId,
+            ColumnName = column.Name,
             EnteredAt = DateTime.UtcNow
         });
 
@@ -71,7 +71,7 @@ public class CardService(AppDbContext db, ILogger<CardService> logger) : ICardSe
                 : ServiceResult<CardResponse>.NotFound();
 
         var card = await db.Cards
-            .Include(c => c.StateHistory).ThenInclude(h => h.Column)
+            .Include(c => c.StateHistory)
             .FirstOrDefaultAsync(c => c.Id == cardId && c.ColumnId == columnId && c.Column.BoardId == boardId);
 
         if (card is null) return ServiceResult<CardResponse>.NotFound();
@@ -110,7 +110,7 @@ public class CardService(AppDbContext db, ILogger<CardService> logger) : ICardSe
                 : ServiceResult<CardResponse>.NotFound();
 
         var card = await db.Cards
-            .Include(c => c.StateHistory).ThenInclude(h => h.Column)
+            .Include(c => c.StateHistory)
             .FirstOrDefaultAsync(c => c.Id == cardId && c.ColumnId == columnId && c.Column.BoardId == boardId);
 
         if (card is null) return ServiceResult<CardResponse>.NotFound();
@@ -127,6 +127,7 @@ public class CardService(AppDbContext db, ILogger<CardService> logger) : ICardSe
         {
             CardId = card.Id,
             ColumnId = request.TargetColumnId,
+            ColumnName = targetColumn.Name,
             EnteredAt = now
         });
 
@@ -141,7 +142,7 @@ public class CardService(AppDbContext db, ILogger<CardService> logger) : ICardSe
     private async Task<CardResponse> LoadCardResponseAsync(int cardId)
     {
         var card = await db.Cards
-            .Include(c => c.StateHistory).ThenInclude(h => h.Column)
+            .Include(c => c.StateHistory)
             .FirstAsync(c => c.Id == cardId);
         return MapToResponse(card);
     }
@@ -156,7 +157,7 @@ public class CardService(AppDbContext db, ILogger<CardService> logger) : ICardSe
             .OrderBy(h => h.EnteredAt)
             .Select(h => new CardStateHistoryResponse(
                 h.ColumnId,
-                h.Column.Name,
+                h.ColumnName,
                 h.EnteredAt,
                 DateOnly.FromDateTime(h.EnteredAt),
                 h.ExitedAt,

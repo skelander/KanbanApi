@@ -27,8 +27,8 @@ public class BoardsController(IBoardService boardService) : ControllerBase
     {
         var username = User.FindFirstValue(ClaimTypes.Name)!;
         var role = User.FindFirstValue(ClaimTypes.Role)!;
-        var board = await boardService.CreateBoardAsync(request, UserId, username, role);
-        return CreatedAtAction(nameof(GetBoard), new { id = board.Id }, board);
+        var result = await boardService.CreateBoardAsync(request, UserId, username, role);
+        return CreatedAtAction(nameof(GetBoard), new { id = result.Value!.Id }, result.Value);
     }
 
     [HttpGet("{id}")]

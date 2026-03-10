@@ -6,7 +6,7 @@ public interface IBoardService
 {
     Task<IEnumerable<BoardSummaryResponse>> GetBoardsForUserAsync(int userId);
     Task<ServiceResult<BoardResponse>> GetBoardAsync(int boardId, int userId, bool isAdmin = false);
-    Task<BoardResponse> CreateBoardAsync(CreateBoardRequest request, int userId, string ownerUsername, string ownerRole);
+    Task<ServiceResult<BoardResponse>> CreateBoardAsync(CreateBoardRequest request, int userId, string ownerUsername, string ownerRole);
     Task<ServiceResult<BoardResponse>> UpdateBoardAsync(int boardId, UpdateBoardRequest request, int userId, bool isAdmin = false);
     Task<ServiceResult<bool>> DeleteBoardAsync(int boardId, int userId, bool isAdmin = false);
     Task<ServiceResult<IEnumerable<UserResponse>>> GetMembersAsync(int boardId, int userId, bool isAdmin = false);

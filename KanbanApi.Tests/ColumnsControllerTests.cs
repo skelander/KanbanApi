@@ -108,6 +108,29 @@ public class ColumnsControllerTests(KanbanApiFactory factory) : IClassFixture<Ka
     }
 
     [Fact]
+    public async Task DeleteColumn_WithCardsAndHistory_DeletesSuccessfully()
+    {
+        var board = await CreateBoardAsync();
+        var col1Response = await _client.PostAsJsonAsync($"/boards/{board.Id}/columns", new CreateColumnRequest("Col With Cards"));
+        var col1 = (await col1Response.Content.ReadFromJsonAsync<ColumnResponse>())!;
+        var col2Response = await _client.PostAsJsonAsync($"/boards/{board.Id}/columns", new CreateColumnRequest("Col 2"));
+        var col2 = (await col2Response.Content.ReadFromJsonAsync<ColumnResponse>())!;
+
+        // Create a card in col1 and move it to col2 (creates StateHistory for both columns)
+        var cardResponse = await _client.PostAsJsonAsync(
+            $"/boards/{board.Id}/columns/{col1.Id}/cards",
+            new CreateCardRequest("Card With History", null));
+        var card = (await cardResponse.Content.ReadFromJsonAsync<CardResponse>())!;
+        await _client.PutAsJsonAsync(
+            $"/boards/{board.Id}/columns/{col1.Id}/cards/{card.Id}/move",
+            new MoveCardRequest(col2.Id, 0));
+
+        // Now delete col2 (which currently holds the card with state history)
+        var response = await _client.DeleteAsync($"/boards/{board.Id}/columns/{col2.Id}");
+        Assert.Equal(HttpStatusCode.NoContent, response.StatusCode);
+    }
+
+    [Fact]
     public async Task GetColumns_AsAdmin_CanAccessAnyBoard()
     {
         // Create a second admin who owns a board (first admin is not a member)

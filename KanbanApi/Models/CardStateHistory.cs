@@ -6,7 +6,7 @@ public class CardStateHistory
     public int CardId { get; set; }
     public Card Card { get; set; } = null!;
     public int ColumnId { get; set; }
-    public Column Column { get; set; } = null!;
+    public required string ColumnName { get; set; }
     public DateTime EnteredAt { get; set; }
     public DateTime? ExitedAt { get; set; }
 }

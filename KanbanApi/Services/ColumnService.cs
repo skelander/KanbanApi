@@ -73,6 +73,8 @@ public class ColumnService(AppDbContext db, ILogger<ColumnService> logger) : ICo
         var board = await db.Boards
             .Include(b => b.Members)
             .Include(b => b.Columns)
+                .ThenInclude(c => c.Cards)
+                    .ThenInclude(card => card.StateHistory)
             .FirstOrDefaultAsync(b => b.Id == boardId);
 
         if (board is null) return ServiceResult<bool>.NotFound();
@@ -82,6 +84,9 @@ public class ColumnService(AppDbContext db, ILogger<ColumnService> logger) : ICo
         var column = board.Columns.FirstOrDefault(c => c.Id == columnId);
         if (column is null) return ServiceResult<bool>.NotFound();
 
+        foreach (var card in column.Cards)
+            db.CardStateHistories.RemoveRange(card.StateHistory);
+        db.Cards.RemoveRange(column.Cards);
         db.Columns.Remove(column);
         await db.SaveChangesAsync();
         logger.LogInformation("Deleted column {ColumnId} from board {BoardId}", columnId, boardId);

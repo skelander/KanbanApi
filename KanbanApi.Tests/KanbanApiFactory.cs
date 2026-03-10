@@ -37,6 +37,7 @@ public class KanbanApiFactory : WebApplicationFactory<Program>
         builder.UseSetting("Jwt:Key", TestJwtKey);
         builder.UseSetting("Jwt:Issuer", "KanbanApi");
         builder.UseSetting("Jwt:Audience", "KanbanApi");
+        builder.UseSetting("RateLimit:LoginPermitLimit", "1000");
     }
 
     public const string TestJwtKey = "test-jwt-key-that-is-long-enough-for-hmac-sha256";

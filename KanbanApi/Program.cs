@@ -1,4 +1,5 @@
 using System.Text;
+using System.Threading.RateLimiting;
 using KanbanApi.Data;
 using KanbanApi.Models;
 using KanbanApi.Services;
@@ -28,6 +29,12 @@ builder.Services.AddScoped<ICardService, CardService>();
 var jwtKey = builder.Configuration["Jwt:Key"];
 if (string.IsNullOrEmpty(jwtKey))
     throw new InvalidOperationException("Jwt:Key is not configured. Set it via environment variable Jwt__Key.");
+var jwtIssuer = builder.Configuration["Jwt:Issuer"];
+if (string.IsNullOrEmpty(jwtIssuer))
+    throw new InvalidOperationException("Jwt:Issuer is not configured.");
+var jwtAudience = builder.Configuration["Jwt:Audience"];
+if (string.IsNullOrEmpty(jwtAudience))
+    throw new InvalidOperationException("Jwt:Audience is not configured.");
 builder.Services.AddAuthentication(JwtBearerDefaults.AuthenticationScheme)
     .AddJwtBearer(options =>
     {
@@ -37,13 +44,29 @@ builder.Services.AddAuthentication(JwtBearerDefaults.AuthenticationScheme)
             ValidateAudience = true,
             ValidateLifetime = true,
             ValidateIssuerSigningKey = true,
-            ValidIssuer = builder.Configuration["Jwt:Issuer"],
-            ValidAudience = builder.Configuration["Jwt:Audience"],
+            ValidIssuer = jwtIssuer,
+            ValidAudience = jwtAudience,
             IssuerSigningKey = new SymmetricSecurityKey(Encoding.UTF8.GetBytes(jwtKey))
         };
     });
 
 builder.Services.AddAuthorization();
+
+var loginPermitLimit = builder.Configuration.GetValue<int>("RateLimit:LoginPermitLimit", 10);
+builder.Services.AddRateLimiter(options =>
+{
+    options.AddPolicy("login", context =>
+        RateLimitPartition.GetFixedWindowLimiter(
+            context.Connection.RemoteIpAddress?.ToString() ?? "unknown",
+            _ => new FixedWindowRateLimiterOptions
+            {
+                PermitLimit = loginPermitLimit,
+                Window = TimeSpan.FromMinutes(1),
+                QueueProcessingOrder = QueueProcessingOrder.OldestFirst,
+                QueueLimit = 0
+            }));
+    options.RejectionStatusCode = StatusCodes.Status429TooManyRequests;
+});
 
 var app = builder.Build();
 
@@ -64,6 +87,7 @@ using (var scope = app.Services.CreateScope())
     }
 }
 
+app.UseRateLimiter();
 app.UseCors();
 app.UseAuthentication();
 app.UseAuthorization();

@@ -23,7 +23,6 @@ public class BoardService(AppDbContext db, ILogger<BoardService> logger) : IBoar
             .Include(b => b.Columns.OrderBy(c => c.Position))
                 .ThenInclude(c => c.Cards.OrderBy(card => card.Position))
                     .ThenInclude(card => card.StateHistory)
-                        .ThenInclude(h => h.Column)
             .FirstOrDefaultAsync(b => b.Id == boardId);
 
         if (board is null) return ServiceResult<BoardResponse>.NotFound();
@@ -33,7 +32,7 @@ public class BoardService(AppDbContext db, ILogger<BoardService> logger) : IBoar
         return ServiceResult<BoardResponse>.Ok(MapToResponse(board));
     }
 
-    public async Task<BoardResponse> CreateBoardAsync(CreateBoardRequest request, int userId, string ownerUsername, string ownerRole)
+    public async Task<ServiceResult<BoardResponse>> CreateBoardAsync(CreateBoardRequest request, int userId, string ownerUsername, string ownerRole)
     {
         await using var transaction = await db.Database.BeginTransactionAsync();
 
@@ -63,7 +62,7 @@ public class BoardService(AppDbContext db, ILogger<BoardService> logger) : IBoar
 
         logger.LogInformation("Created board {BoardName} for user {UserId}", board.Name, userId);
 
-        return new BoardResponse(
+        return ServiceResult<BoardResponse>.Ok(new BoardResponse(
             board.Id,
             board.Name,
             board.Description,
@@ -71,7 +70,7 @@ public class BoardService(AppDbContext db, ILogger<BoardService> logger) : IBoar
             ownerUsername,
             [new UserResponse(userId, ownerUsername, ownerRole)],
             columns.Select(c => new ColumnResponse(c.Id, c.Name, c.Position, c.WipLimit, c.BoardId, []))
-        );
+        ));
     }
 
     public async Task<ServiceResult<BoardResponse>> UpdateBoardAsync(int boardId, UpdateBoardRequest request, int userId, bool isAdmin = false)
@@ -172,7 +171,7 @@ public class BoardService(AppDbContext db, ILogger<BoardService> logger) : IBoar
                     .OrderBy(h => h.EnteredAt)
                     .Select(h => new CardStateHistoryResponse(
                         h.ColumnId,
-                        h.Column.Name,
+                        h.ColumnName,
                         h.EnteredAt,
                         DateOnly.FromDateTime(h.EnteredAt),
                         h.ExitedAt,
