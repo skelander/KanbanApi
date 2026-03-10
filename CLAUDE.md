@@ -92,4 +92,4 @@ Additional users created via `POST /auth/users` (admin only). Allowed roles: `us
 - API deployed to: https://kanban-rikard.fly.dev
 - Fly.io app: `kanban-rikard`, region: `arn`, volume: `kanban_data` at `/data/kanban.db`
 - Solution file: `KanbanApi.slnx` (not `.sln`)
-- CI/CD: `.github/workflows/api.yml` — triggers on `KanbanApi/**`, `KanbanApi.Tests/**`, `Dockerfile`, `fly.toml`
+- CI/CD: `.github/workflows/api.yml` — triggers on `KanbanApi/**`, `KanbanApi.Tests/**`, `Dockerfile`, `fly.toml`; SDK pinned to `10.0.103` (10.0.201 does not exist on GitHub Actions CDN)
