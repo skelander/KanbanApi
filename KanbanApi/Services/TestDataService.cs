@@ -46,16 +46,18 @@ public class TestDataService(AppDbContext db, ILogger<TestDataService> logger) :
         db.Cards.RemoveRange(existing);
 
         var sprintStart = DateTime.UtcNow.AddDays(-14);
-        var firstCol = columns.First();
-        var lastCol = columns.Last();
-        var midCol = columns.Count > 2 ? columns[columns.Count / 2] : null;
+        var backlogCol = columns.First(c => c.IsBacklog);
+        var workCols = columns.Where(c => !c.IsBacklog).OrderBy(c => c.Position).ToList();
+        var toDoCol = workCols.Count > 0 ? workCols[0] : backlogCol;
+        var lastCol = workCols.Count > 0 ? workCols[workCols.Count - 1] : backlogCol;
+        var doingCol = workCols.Count > 2 ? workCols[workCols.Count / 2] : null;
 
         // All positions start at 0 after the clear
         var positions = columns.ToDictionary(c => c.Id, _ => 0);
 
         foreach (var card in Cards)
         {
-            var targetCol = TargetColumn(card, firstCol, midCol, lastCol);
+            var targetCol = TargetColumn(card, toDoCol, doingCol, lastCol);
             var entity = new Card
             {
                 Title = card.Title,
@@ -63,7 +65,7 @@ public class TestDataService(AppDbContext db, ILogger<TestDataService> logger) :
                 ColumnId = targetCol.Id,
                 Position = positions[targetCol.Id]++,
             };
-            BuildHistory(entity, card, firstCol, midCol, lastCol, sprintStart);
+            BuildHistory(entity, card, backlogCol, toDoCol, doingCol, lastCol, sprintStart);
             db.Cards.Add(entity);
         }
 
@@ -72,26 +74,34 @@ public class TestDataService(AppDbContext db, ILogger<TestDataService> logger) :
         return ServiceResult.Ok();
     }
 
-    // Cards with DoneDay go to the last column; cards with DoingDay go to the mid column
-    // (if it exists); everything else stays in the first column.
-    private static Column TargetColumn(SprintCard card, Column firstCol, Column? midCol, Column lastCol) =>
+    // Cards with DoneDay go to the last column; cards with DoingDay go to the doing column
+    // (if it exists); everything else stays in the To Do column.
+    private static Column TargetColumn(SprintCard card, Column toDoCol, Column? doingCol, Column lastCol) =>
         card.DoneDay.HasValue ? lastCol :
-        card.DoingDay.HasValue && midCol is not null ? midCol :
-        firstCol;
+        card.DoingDay.HasValue && doingCol is not null ? doingCol :
+        toDoCol;
 
     private static void BuildHistory(
         Card entity, SprintCard card,
-        Column firstCol, Column? midCol, Column lastCol,
+        Column backlogCol, Column toDoCol, Column? doingCol, Column lastCol,
         DateTime sprintStart)
     {
+        var backlogEntered = sprintStart;
         var toDoEntered = sprintStart.AddDays(card.ToDoDay);
 
-        // Cards still in the first column (not yet started, or in-progress on a 2-column board)
-        if (!card.DoingDay.HasValue || (midCol is null && !card.DoneDay.HasValue))
+        // All cards start in backlog — exited when moved to To Do
+        entity.StateHistory.Add(new CardStateHistory
+        {
+            ColumnId = backlogCol.Id, ColumnName = backlogCol.Name,
+            EnteredAt = backlogEntered, ExitedAt = toDoEntered,
+        });
+
+        // Cards with no DoingDay stay in To Do
+        if (!card.DoingDay.HasValue || (doingCol is null && !card.DoneDay.HasValue))
         {
             entity.StateHistory.Add(new CardStateHistory
             {
-                ColumnId = firstCol.Id, ColumnName = firstCol.Name,
+                ColumnId = toDoCol.Id, ColumnName = toDoCol.Name,
                 EnteredAt = toDoEntered,
             });
             return;
@@ -99,19 +109,19 @@ public class TestDataService(AppDbContext db, ILogger<TestDataService> logger) :
 
         var doingEntered = sprintStart.AddDays(card.DoingDay!.Value);
 
-        // firstCol → exited when work started
+        // To Do → exited when work started
         entity.StateHistory.Add(new CardStateHistory
         {
-            ColumnId = firstCol.Id, ColumnName = firstCol.Name,
+            ColumnId = toDoCol.Id, ColumnName = toDoCol.Name,
             EnteredAt = toDoEntered, ExitedAt = doingEntered,
         });
 
         if (!card.DoneDay.HasValue)
         {
-            // In progress — open entry in mid column
+            // In progress — open entry in doing column
             entity.StateHistory.Add(new CardStateHistory
             {
-                ColumnId = midCol!.Id, ColumnName = midCol!.Name,
+                ColumnId = doingCol!.Id, ColumnName = doingCol!.Name,
                 EnteredAt = doingEntered,
             });
             return;
@@ -119,12 +129,12 @@ public class TestDataService(AppDbContext db, ILogger<TestDataService> logger) :
 
         var doneEntered = sprintStart.AddDays(card.DoneDay!.Value);
 
-        // midCol exists: record the doing phase before marking done
-        if (midCol is not null)
+        // Record the doing phase before marking done
+        if (doingCol is not null)
         {
             entity.StateHistory.Add(new CardStateHistory
             {
-                ColumnId = midCol.Id, ColumnName = midCol.Name,
+                ColumnId = doingCol.Id, ColumnName = doingCol.Name,
                 EnteredAt = doingEntered, ExitedAt = doneEntered,
             });
         }
