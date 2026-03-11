@@ -29,6 +29,7 @@ public class CardsController(ICardService cardService) : ControllerBase
         var result = await cardService.CreateCardAsync(boardId, columnId, request, UserId, IsAdmin, ct);
         if (result.IsNotFound) return NotFound();
         if (result.IsForbidden) return Forbid();
+        if (result.IsConflict) return Conflict("WIP limit reached");
         return CreatedAtAction(nameof(GetCards), new { boardId, columnId }, result.Value);
     }
 
@@ -56,6 +57,7 @@ public class CardsController(ICardService cardService) : ControllerBase
         var result = await cardService.MoveCardAsync(boardId, columnId, cardId, request, UserId, IsAdmin, ct);
         if (result.IsNotFound) return NotFound();
         if (result.IsForbidden) return Forbid();
+        if (result.IsConflict) return Conflict("WIP limit reached");
         return Ok(result.Value);
     }
 }

@@ -36,6 +36,9 @@ public class CardService(AppDbContext db, ILogger<CardService> logger) : ICardSe
 
         if (column is null) return ServiceResult<CardResponse>.NotFound();
 
+        if (column.WipLimit.HasValue && column.Cards.Count >= column.WipLimit.Value)
+            return ServiceResult<CardResponse>.Conflict();
+
         var position = column.Cards.Count > 0 ? column.Cards.Max(c => c.Position) + 1 : 0;
         var card = new Card
         {
@@ -105,8 +108,13 @@ public class CardService(AppDbContext db, ILogger<CardService> logger) : ICardSe
 
         if (card is null) return ServiceResult<CardResponse>.NotFound();
 
-        var targetColumn = await db.Columns.FirstOrDefaultAsync(c => c.Id == request.TargetColumnId && c.BoardId == boardId, ct);
+        var targetColumn = await db.Columns
+            .Include(c => c.Cards)
+            .FirstOrDefaultAsync(c => c.Id == request.TargetColumnId && c.BoardId == boardId, ct);
         if (targetColumn is null) return ServiceResult<CardResponse>.NotFound();
+
+        if (columnId != request.TargetColumnId && targetColumn.WipLimit.HasValue && targetColumn.Cards.Count >= targetColumn.WipLimit.Value)
+            return ServiceResult<CardResponse>.Conflict();
 
         var now = DateTime.UtcNow;
 
