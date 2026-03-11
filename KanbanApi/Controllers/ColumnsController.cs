@@ -23,12 +23,4 @@ public class ColumnsController(IColumnService columnService) : ControllerBase
         return Ok(result.Value);
     }
 
-    [HttpPut("{columnId}")]
-    public async Task<IActionResult> UpdateColumn(int boardId, int columnId, [FromBody] UpdateColumnRequest request, CancellationToken ct)
-    {
-        var result = await columnService.UpdateColumnAsync(boardId, columnId, request, UserId, IsAdmin, ct);
-        if (result.IsNotFound) return NotFound();
-        if (result.IsForbidden) return Forbid();
-        return Ok(result.Value);
-    }
 }

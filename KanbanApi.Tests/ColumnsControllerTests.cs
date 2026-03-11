@@ -37,32 +37,6 @@ public class ColumnsControllerTests(KanbanApiFactory factory) : IClassFixture<Ka
     }
 
     [Fact]
-    public async Task UpdateColumn_ChangeName_ReturnsUpdated()
-    {
-        var board = await CreateBoardAsync();
-        // Use the "To Do" column (index 1 after backlog)
-        var column = board.Columns.ToList()[1];
-        var response = await _client.PutAsJsonAsync($"/boards/{board.Id}/columns/{column.Id}", new UpdateColumnRequest("New Name", null, null));
-        Assert.Equal(HttpStatusCode.OK, response.StatusCode);
-        var updated = await response.Content.ReadFromJsonAsync<ColumnResponse>();
-        Assert.Equal("New Name", updated!.Name);
-    }
-
-    [Fact]
-    public async Task UpdateColumn_SetWipLimit_ReturnsUpdatedWipLimit()
-    {
-        var board = await CreateBoardAsync();
-        // Use the "To Do" column (index 1 after backlog)
-        var column = board.Columns.ToList()[1];
-        Assert.Null(column.WipLimit);
-
-        var response = await _client.PutAsJsonAsync($"/boards/{board.Id}/columns/{column.Id}", new UpdateColumnRequest(null, null, 5));
-        Assert.Equal(HttpStatusCode.OK, response.StatusCode);
-        var updated = await response.Content.ReadFromJsonAsync<ColumnResponse>();
-        Assert.Equal(5, updated!.WipLimit);
-    }
-
-    [Fact]
     public async Task GetColumns_AsNonMember_ReturnsForbid()
     {
         var board = await CreateBoardAsync();
