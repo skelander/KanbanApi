@@ -25,27 +25,6 @@ public class ColumnService(AppDbContext db, ILogger<ColumnService> logger) : ICo
         return ServiceResult<IEnumerable<ColumnResponse>>.Ok(columns);
     }
 
-    public async Task<ServiceResult<ColumnResponse>> CreateColumnAsync(int boardId, CreateColumnRequest request, int userId, bool isAdmin = false, CancellationToken ct = default)
-    {
-        var board = await db.Boards
-            .Include(b => b.Members)
-            .Include(b => b.Columns)
-            .FirstOrDefaultAsync(b => b.Id == boardId, ct);
-
-        if (board is null) return ServiceResult<ColumnResponse>.NotFound();
-        if (!isAdmin && !board.Members.Any(m => m.UserId == userId))
-            return ServiceResult<ColumnResponse>.Forbidden();
-
-        var position = board.Columns.Count > 0 ? board.Columns.Max(c => c.Position) + 1 : 0;
-        var column = new Column { Name = request.Name, Position = position, WipLimit = request.WipLimit, BoardId = boardId };
-
-        db.Columns.Add(column);
-        await db.SaveChangesAsync(ct);
-
-        logger.LogInformation("Created column {ColumnName} on board {BoardId}", column.Name, boardId);
-        return ServiceResult<ColumnResponse>.Ok(new ColumnResponse(column.Id, column.Name, column.Position, column.WipLimit, column.IsBacklog, column.BoardId, []));
-    }
-
     public async Task<ServiceResult<ColumnResponse>> UpdateColumnAsync(int boardId, int columnId, UpdateColumnRequest request, int userId, bool isAdmin = false, CancellationToken ct = default)
     {
         var board = await db.Boards
@@ -65,32 +44,7 @@ public class ColumnService(AppDbContext db, ILogger<ColumnService> logger) : ICo
         if (request.WipLimit.HasValue) column.WipLimit = request.WipLimit.Value;
 
         await db.SaveChangesAsync(ct);
+        logger.LogInformation("Updated column {ColumnId} on board {BoardId}", columnId, boardId);
         return ServiceResult<ColumnResponse>.Ok(new ColumnResponse(column.Id, column.Name, column.Position, column.WipLimit, column.IsBacklog, column.BoardId, []));
-    }
-
-    public async Task<ServiceResult> DeleteColumnAsync(int boardId, int columnId, int userId, bool isAdmin = false, CancellationToken ct = default)
-    {
-        var board = await db.Boards
-            .Include(b => b.Members)
-            .Include(b => b.Columns)
-                .ThenInclude(c => c.Cards)
-                    .ThenInclude(card => card.StateHistory)
-            .FirstOrDefaultAsync(b => b.Id == boardId, ct);
-
-        if (board is null) return ServiceResult.NotFound();
-        if (!isAdmin && !board.Members.Any(m => m.UserId == userId))
-            return ServiceResult.Forbidden();
-
-        var column = board.Columns.FirstOrDefault(c => c.Id == columnId);
-        if (column is null) return ServiceResult.NotFound();
-        if (column.IsBacklog) return ServiceResult.Conflict();
-
-        foreach (var card in column.Cards)
-            db.CardStateHistories.RemoveRange(card.StateHistory);
-        db.Cards.RemoveRange(column.Cards);
-        db.Columns.Remove(column);
-        await db.SaveChangesAsync(ct);
-        logger.LogInformation("Deleted column {ColumnId} from board {BoardId}", columnId, boardId);
-        return ServiceResult.Ok();
     }
 }

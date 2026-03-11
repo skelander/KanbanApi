@@ -8,21 +8,19 @@ public class CardsControllerTests(KanbanApiFactory factory) : IClassFixture<Kanb
 {
     private readonly HttpClient _client = factory.CreateClient();
 
-    private async Task<(BoardResponse board, ColumnResponse column)> SetupAsync()
+    private async Task<BoardResponse> SetupAsync()
     {
         var token = await Helpers.LoginAsync(_client, "admin", "admin");
         _client.SetBearer(token);
         var boardResponse = await _client.PostAsJsonAsync("/boards", new CreateBoardRequest("Card Test Board", null));
-        var board = (await boardResponse.Content.ReadFromJsonAsync<BoardResponse>())!;
-        var colResponse = await _client.PostAsJsonAsync($"/boards/{board.Id}/columns", new CreateColumnRequest("Backlog"));
-        var column = (await colResponse.Content.ReadFromJsonAsync<ColumnResponse>())!;
-        return (board, column);
+        return (await boardResponse.Content.ReadFromJsonAsync<BoardResponse>())!;
     }
 
     [Fact]
     public async Task CreateCard_AsMember_ReturnsCreated()
     {
-        var (board, column) = await SetupAsync();
+        var board = await SetupAsync();
+        var column = board.Columns.First(c => c.IsBacklog);
         var response = await _client.PostAsJsonAsync(
             $"/boards/{board.Id}/columns/{column.Id}/cards",
             new CreateCardRequest("Card 1", "Description"));
@@ -36,7 +34,8 @@ public class CardsControllerTests(KanbanApiFactory factory) : IClassFixture<Kanb
     [Fact]
     public async Task CreateCard_HasInitialStateHistoryRecord()
     {
-        var (board, column) = await SetupAsync();
+        var board = await SetupAsync();
+        var column = board.Columns.First(c => c.IsBacklog);
         var response = await _client.PostAsJsonAsync(
             $"/boards/{board.Id}/columns/{column.Id}/cards",
             new CreateCardRequest("History Card", null));
@@ -53,7 +52,8 @@ public class CardsControllerTests(KanbanApiFactory factory) : IClassFixture<Kanb
     [Fact]
     public async Task CreateMultipleCards_PositionsIncrement()
     {
-        var (board, column) = await SetupAsync();
+        var board = await SetupAsync();
+        var column = board.Columns.First(c => c.IsBacklog);
         await _client.PostAsJsonAsync($"/boards/{board.Id}/columns/{column.Id}/cards", new CreateCardRequest("A", null));
         await _client.PostAsJsonAsync($"/boards/{board.Id}/columns/{column.Id}/cards", new CreateCardRequest("B", null));
         var response = await _client.PostAsJsonAsync($"/boards/{board.Id}/columns/{column.Id}/cards", new CreateCardRequest("C", null));
@@ -64,7 +64,8 @@ public class CardsControllerTests(KanbanApiFactory factory) : IClassFixture<Kanb
     [Fact]
     public async Task GetCards_ReturnsSortedByPosition()
     {
-        var (board, column) = await SetupAsync();
+        var board = await SetupAsync();
+        var column = board.Columns.First(c => c.IsBacklog);
         await _client.PostAsJsonAsync($"/boards/{board.Id}/columns/{column.Id}/cards", new CreateCardRequest("First", null));
         await _client.PostAsJsonAsync($"/boards/{board.Id}/columns/{column.Id}/cards", new CreateCardRequest("Second", null));
         var response = await _client.GetAsync($"/boards/{board.Id}/columns/{column.Id}/cards");
@@ -77,7 +78,8 @@ public class CardsControllerTests(KanbanApiFactory factory) : IClassFixture<Kanb
     [Fact]
     public async Task UpdateCard_ChangeTitleAndDescription_ReturnsUpdated()
     {
-        var (board, column) = await SetupAsync();
+        var board = await SetupAsync();
+        var column = board.Columns.First(c => c.IsBacklog);
         var created = await (await _client.PostAsJsonAsync(
             $"/boards/{board.Id}/columns/{column.Id}/cards",
             new CreateCardRequest("Original", null))).Content.ReadFromJsonAsync<CardResponse>();
@@ -93,7 +95,8 @@ public class CardsControllerTests(KanbanApiFactory factory) : IClassFixture<Kanb
     [Fact]
     public async Task DeleteCard_AsMember_ReturnsNoContent()
     {
-        var (board, column) = await SetupAsync();
+        var board = await SetupAsync();
+        var column = board.Columns.First(c => c.IsBacklog);
         var created = await (await _client.PostAsJsonAsync(
             $"/boards/{board.Id}/columns/{column.Id}/cards",
             new CreateCardRequest("Delete Me", null))).Content.ReadFromJsonAsync<CardResponse>();
@@ -104,16 +107,17 @@ public class CardsControllerTests(KanbanApiFactory factory) : IClassFixture<Kanb
     [Fact]
     public async Task MoveCard_ToAnotherColumn_UpdatesColumnId()
     {
-        var (board, column) = await SetupAsync();
-        var col2Response = await _client.PostAsJsonAsync($"/boards/{board.Id}/columns", new CreateColumnRequest("In Progress"));
-        var col2 = (await col2Response.Content.ReadFromJsonAsync<ColumnResponse>())!;
+        var board = await SetupAsync();
+        var columns = board.Columns.ToList();
+        var col1 = columns.First(c => c.IsBacklog);
+        var col2 = columns.First(c => !c.IsBacklog);
 
         var created = await (await _client.PostAsJsonAsync(
-            $"/boards/{board.Id}/columns/{column.Id}/cards",
+            $"/boards/{board.Id}/columns/{col1.Id}/cards",
             new CreateCardRequest("Move Me", null))).Content.ReadFromJsonAsync<CardResponse>();
 
         var response = await _client.PutAsJsonAsync(
-            $"/boards/{board.Id}/columns/{column.Id}/cards/{created!.Id}/move",
+            $"/boards/{board.Id}/columns/{col1.Id}/cards/{created!.Id}/move",
             new MoveCardRequest(col2.Id, 0));
 
         Assert.Equal(HttpStatusCode.OK, response.StatusCode);
@@ -125,22 +129,22 @@ public class CardsControllerTests(KanbanApiFactory factory) : IClassFixture<Kanb
     [Fact]
     public async Task MoveCard_RecordsStateHistory()
     {
-        var (board, column) = await SetupAsync();
-        var col2Response = await _client.PostAsJsonAsync($"/boards/{board.Id}/columns", new CreateColumnRequest("In Progress"));
-        var col2 = (await col2Response.Content.ReadFromJsonAsync<ColumnResponse>())!;
-        var col3Response = await _client.PostAsJsonAsync($"/boards/{board.Id}/columns", new CreateColumnRequest("Done"));
-        var col3 = (await col3Response.Content.ReadFromJsonAsync<ColumnResponse>())!;
+        var board = await SetupAsync();
+        var columns = board.Columns.ToList();
+        var col1 = columns[0]; // Backlog
+        var col2 = columns[1]; // To Do
+        var col3 = columns[2]; // Doing
 
         var created = await (await _client.PostAsJsonAsync(
-            $"/boards/{board.Id}/columns/{column.Id}/cards",
+            $"/boards/{board.Id}/columns/{col1.Id}/cards",
             new CreateCardRequest("Flow Card", null))).Content.ReadFromJsonAsync<CardResponse>();
 
-        // Move: Backlog → In Progress
+        // Move: Backlog → To Do
         await _client.PutAsJsonAsync(
-            $"/boards/{board.Id}/columns/{column.Id}/cards/{created!.Id}/move",
+            $"/boards/{board.Id}/columns/{col1.Id}/cards/{created!.Id}/move",
             new MoveCardRequest(col2.Id, 0));
 
-        // Move: In Progress → Done
+        // Move: To Do → Doing
         var response = await _client.PutAsJsonAsync(
             $"/boards/{board.Id}/columns/{col2.Id}/cards/{created.Id}/move",
             new MoveCardRequest(col3.Id, 0));
@@ -149,14 +153,14 @@ public class CardsControllerTests(KanbanApiFactory factory) : IClassFixture<Kanb
         var history = moved!.StateHistory.ToList();
 
         Assert.Equal(3, history.Count);
-        Assert.Equal("Backlog", history[0].ColumnName);
+        Assert.Equal(col1.Name, history[0].ColumnName);
         Assert.NotNull(history[0].ExitedAt);
         Assert.NotNull(history[0].ExitedDate);
         Assert.Equal(DateOnly.FromDateTime(history[0].ExitedAt!.Value), history[0].ExitedDate);
-        Assert.Equal("In Progress", history[1].ColumnName);
+        Assert.Equal(col2.Name, history[1].ColumnName);
         Assert.NotNull(history[1].ExitedAt);
         Assert.NotNull(history[1].ExitedDate);
-        Assert.Equal("Done", history[2].ColumnName);
+        Assert.Equal(col3.Name, history[2].ColumnName);
         Assert.Null(history[2].ExitedAt);
         Assert.Null(history[2].ExitedDate);
     }
@@ -164,7 +168,8 @@ public class CardsControllerTests(KanbanApiFactory factory) : IClassFixture<Kanb
     [Fact]
     public async Task MoveCard_ToInvalidColumn_ReturnsNotFound()
     {
-        var (board, column) = await SetupAsync();
+        var board = await SetupAsync();
+        var column = board.Columns.First(c => c.IsBacklog);
         var created = await (await _client.PostAsJsonAsync(
             $"/boards/{board.Id}/columns/{column.Id}/cards",
             new CreateCardRequest("Card", null))).Content.ReadFromJsonAsync<CardResponse>();
@@ -177,7 +182,8 @@ public class CardsControllerTests(KanbanApiFactory factory) : IClassFixture<Kanb
     [Fact]
     public async Task GetCards_AsNonMember_ReturnsForbid()
     {
-        var (board, column) = await SetupAsync();
+        var board = await SetupAsync();
+        var column = board.Columns.First(c => c.IsBacklog);
         var outsiderUsername = $"outsider_{Guid.NewGuid():N}";
         var adminToken = await Helpers.LoginAsync(_client, "admin", "admin");
         _client.SetBearer(adminToken);
@@ -191,7 +197,7 @@ public class CardsControllerTests(KanbanApiFactory factory) : IClassFixture<Kanb
     [Fact]
     public async Task GetCards_ColumnNotFound_ReturnsNotFound()
     {
-        var (board, _) = await SetupAsync();
+        var board = await SetupAsync();
         var response = await _client.GetAsync($"/boards/{board.Id}/columns/99999/cards");
         Assert.Equal(HttpStatusCode.NotFound, response.StatusCode);
     }
@@ -219,7 +225,8 @@ public class CardsControllerTests(KanbanApiFactory factory) : IClassFixture<Kanb
     [Fact]
     public async Task UpdateCard_ChangePosition_ReturnsUpdatedPosition()
     {
-        var (board, column) = await SetupAsync();
+        var board = await SetupAsync();
+        var column = board.Columns.First(c => c.IsBacklog);
         var created = await (await _client.PostAsJsonAsync(
             $"/boards/{board.Id}/columns/{column.Id}/cards",
             new CreateCardRequest("Card", null))).Content.ReadFromJsonAsync<CardResponse>();
@@ -234,7 +241,8 @@ public class CardsControllerTests(KanbanApiFactory factory) : IClassFixture<Kanb
     [Fact]
     public async Task MoveCard_ToSameColumn_ReturnsOk()
     {
-        var (board, column) = await SetupAsync();
+        var board = await SetupAsync();
+        var column = board.Columns.First(c => c.IsBacklog);
         var created = await (await _client.PostAsJsonAsync(
             $"/boards/{board.Id}/columns/{column.Id}/cards",
             new CreateCardRequest("Same Column Card", null))).Content.ReadFromJsonAsync<CardResponse>();
@@ -249,7 +257,8 @@ public class CardsControllerTests(KanbanApiFactory factory) : IClassFixture<Kanb
     [Fact]
     public async Task MoveCard_ToColumnOnDifferentBoard_ReturnsNotFound()
     {
-        var (board, column) = await SetupAsync();
+        var board = await SetupAsync();
+        var column = board.Columns.First(c => c.IsBacklog);
         var card = await (await _client.PostAsJsonAsync(
             $"/boards/{board.Id}/columns/{column.Id}/cards",
             new CreateCardRequest("Cross Board Card", null))).Content.ReadFromJsonAsync<CardResponse>();

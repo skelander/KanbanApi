@@ -23,15 +23,6 @@ public class ColumnsController(IColumnService columnService) : ControllerBase
         return Ok(result.Value);
     }
 
-    [HttpPost]
-    public async Task<IActionResult> CreateColumn(int boardId, [FromBody] CreateColumnRequest request, CancellationToken ct)
-    {
-        var result = await columnService.CreateColumnAsync(boardId, request, UserId, IsAdmin, ct);
-        if (result.IsNotFound) return NotFound();
-        if (result.IsForbidden) return Forbid();
-        return CreatedAtAction(nameof(GetColumns), new { boardId }, result.Value);
-    }
-
     [HttpPut("{columnId}")]
     public async Task<IActionResult> UpdateColumn(int boardId, int columnId, [FromBody] UpdateColumnRequest request, CancellationToken ct)
     {
@@ -39,15 +30,5 @@ public class ColumnsController(IColumnService columnService) : ControllerBase
         if (result.IsNotFound) return NotFound();
         if (result.IsForbidden) return Forbid();
         return Ok(result.Value);
-    }
-
-    [HttpDelete("{columnId}")]
-    public async Task<IActionResult> DeleteColumn(int boardId, int columnId, CancellationToken ct)
-    {
-        var result = await columnService.DeleteColumnAsync(boardId, columnId, UserId, IsAdmin, ct);
-        if (result.IsNotFound) return NotFound();
-        if (result.IsForbidden) return Forbid();
-        if (result.IsConflict) return Conflict("Cannot delete the backlog column.");
-        return NoContent();
     }
 }

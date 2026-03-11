@@ -31,10 +31,6 @@ public record BoardSummaryResponse(int Id, string Name, string? Description, int
 public record BoardResponse(int Id, string Name, string? Description, int OwnerId, string OwnerUsername, IEnumerable<UserResponse> Members, IEnumerable<ColumnResponse> Columns);
 
 // Columns
-public record CreateColumnRequest(
-    [Required][MaxLength(100)] string Name,
-    [Range(1, 1000)] int? WipLimit = null);
-
 public record UpdateColumnRequest(
     [MaxLength(100)] string? Name,
     [Range(0, int.MaxValue)] int? Position,

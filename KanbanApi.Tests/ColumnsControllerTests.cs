@@ -23,42 +23,15 @@ public class ColumnsControllerTests(KanbanApiFactory factory) : IClassFixture<Ka
     }
 
     [Fact]
-    public async Task CreateColumn_AsMember_ReturnsCreated()
+    public async Task GetColumns_ReturnsDefaultColumns()
     {
         var board = await CreateBoardAsync();
-        // Board starts with 4 default columns (Backlog + positions 1-3), new column gets position 4
-        var response = await _client.PostAsJsonAsync($"/boards/{board.Id}/columns", new CreateColumnRequest("Review"));
-        Assert.Equal(HttpStatusCode.Created, response.StatusCode);
-        var column = await response.Content.ReadFromJsonAsync<ColumnResponse>();
-        Assert.Equal("Review", column!.Name);
-        Assert.Equal(4, column.Position);
-    }
-
-    [Fact]
-    public async Task CreateMultipleColumns_PositionsIncrement()
-    {
-        var board = await CreateBoardAsync();
-        // Board starts with 4 default columns (Backlog pos 0, To Do/Doing/Done pos 1-3)
-        var r1 = await _client.PostAsJsonAsync($"/boards/{board.Id}/columns", new CreateColumnRequest("Col 4"));
-        var r2 = await _client.PostAsJsonAsync($"/boards/{board.Id}/columns", new CreateColumnRequest("Col 5"));
-        var r3 = await _client.PostAsJsonAsync($"/boards/{board.Id}/columns", new CreateColumnRequest("Col 6"));
-        var c1 = (await r1.Content.ReadFromJsonAsync<ColumnResponse>())!;
-        var c2 = (await r2.Content.ReadFromJsonAsync<ColumnResponse>())!;
-        var c3 = (await r3.Content.ReadFromJsonAsync<ColumnResponse>())!;
-        Assert.True(c1.Position < c2.Position && c2.Position < c3.Position);
-    }
-
-    [Fact]
-    public async Task GetColumns_ReturnsSortedByPosition()
-    {
-        var board = await CreateBoardAsync();
-        await _client.PostAsJsonAsync($"/boards/{board.Id}/columns", new CreateColumnRequest("Extra 1"));
-        await _client.PostAsJsonAsync($"/boards/{board.Id}/columns", new CreateColumnRequest("Extra 2"));
         var response = await _client.GetAsync($"/boards/{board.Id}/columns");
         Assert.Equal(HttpStatusCode.OK, response.StatusCode);
         var columns = await response.Content.ReadFromJsonAsync<List<ColumnResponse>>();
-        // 4 defaults (Backlog + To Do + Doing + Done) + 2 added = 6
-        Assert.Equal(6, columns!.Count);
+        // 4 defaults: Backlog + To Do + Doing + Done
+        Assert.Equal(4, columns!.Count);
+        Assert.True(columns[0].IsBacklog);
         for (int i = 1; i < columns.Count; i++)
             Assert.True(columns[i - 1].Position <= columns[i].Position);
     }
@@ -67,22 +40,26 @@ public class ColumnsControllerTests(KanbanApiFactory factory) : IClassFixture<Ka
     public async Task UpdateColumn_ChangeName_ReturnsUpdated()
     {
         var board = await CreateBoardAsync();
-        var createResponse = await _client.PostAsJsonAsync($"/boards/{board.Id}/columns", new CreateColumnRequest("Old Name"));
-        var column = await createResponse.Content.ReadFromJsonAsync<ColumnResponse>();
-        var response = await _client.PutAsJsonAsync($"/boards/{board.Id}/columns/{column!.Id}", new UpdateColumnRequest("New Name", null, null));
+        // Use the "To Do" column (index 1 after backlog)
+        var column = board.Columns.ToList()[1];
+        var response = await _client.PutAsJsonAsync($"/boards/{board.Id}/columns/{column.Id}", new UpdateColumnRequest("New Name", null, null));
         Assert.Equal(HttpStatusCode.OK, response.StatusCode);
         var updated = await response.Content.ReadFromJsonAsync<ColumnResponse>();
         Assert.Equal("New Name", updated!.Name);
     }
 
     [Fact]
-    public async Task DeleteColumn_AsMember_ReturnsNoContent()
+    public async Task UpdateColumn_SetWipLimit_ReturnsUpdatedWipLimit()
     {
         var board = await CreateBoardAsync();
-        var createResponse = await _client.PostAsJsonAsync($"/boards/{board.Id}/columns", new CreateColumnRequest("Delete Me"));
-        var column = await createResponse.Content.ReadFromJsonAsync<ColumnResponse>();
-        var response = await _client.DeleteAsync($"/boards/{board.Id}/columns/{column!.Id}");
-        Assert.Equal(HttpStatusCode.NoContent, response.StatusCode);
+        // Use the "To Do" column (index 1 after backlog)
+        var column = board.Columns.ToList()[1];
+        Assert.Null(column.WipLimit);
+
+        var response = await _client.PutAsJsonAsync($"/boards/{board.Id}/columns/{column.Id}", new UpdateColumnRequest(null, null, 5));
+        Assert.Equal(HttpStatusCode.OK, response.StatusCode);
+        var updated = await response.Content.ReadFromJsonAsync<ColumnResponse>();
+        Assert.Equal(5, updated!.WipLimit);
     }
 
     [Fact]
@@ -105,53 +82,6 @@ public class ColumnsControllerTests(KanbanApiFactory factory) : IClassFixture<Ka
         await AdminTokenAsync();
         var response = await _client.GetAsync("/boards/99999/columns");
         Assert.Equal(HttpStatusCode.NotFound, response.StatusCode);
-    }
-
-    [Fact]
-    public async Task DeleteColumn_WithCardsAndHistory_DeletesSuccessfully()
-    {
-        var board = await CreateBoardAsync();
-        var col1Response = await _client.PostAsJsonAsync($"/boards/{board.Id}/columns", new CreateColumnRequest("Col With Cards"));
-        var col1 = (await col1Response.Content.ReadFromJsonAsync<ColumnResponse>())!;
-        var col2Response = await _client.PostAsJsonAsync($"/boards/{board.Id}/columns", new CreateColumnRequest("Col 2"));
-        var col2 = (await col2Response.Content.ReadFromJsonAsync<ColumnResponse>())!;
-
-        // Create a card in col1 and move it to col2 (creates StateHistory for both columns)
-        var cardResponse = await _client.PostAsJsonAsync(
-            $"/boards/{board.Id}/columns/{col1.Id}/cards",
-            new CreateCardRequest("Card With History", null));
-        var card = (await cardResponse.Content.ReadFromJsonAsync<CardResponse>())!;
-        await _client.PutAsJsonAsync(
-            $"/boards/{board.Id}/columns/{col1.Id}/cards/{card.Id}/move",
-            new MoveCardRequest(col2.Id, 0));
-
-        // Now delete col2 (which currently holds the card with state history)
-        var response = await _client.DeleteAsync($"/boards/{board.Id}/columns/{col2.Id}");
-        Assert.Equal(HttpStatusCode.NoContent, response.StatusCode);
-    }
-
-    [Fact]
-    public async Task CreateColumn_WithWipLimit_StoresAndReturnsWipLimit()
-    {
-        var board = await CreateBoardAsync();
-        var response = await _client.PostAsJsonAsync($"/boards/{board.Id}/columns", new CreateColumnRequest("Limited", 3));
-        Assert.Equal(HttpStatusCode.Created, response.StatusCode);
-        var column = await response.Content.ReadFromJsonAsync<ColumnResponse>();
-        Assert.Equal(3, column!.WipLimit);
-    }
-
-    [Fact]
-    public async Task UpdateColumn_SetWipLimit_ReturnsUpdatedWipLimit()
-    {
-        var board = await CreateBoardAsync();
-        var createResponse = await _client.PostAsJsonAsync($"/boards/{board.Id}/columns", new CreateColumnRequest("No Limit"));
-        var column = await createResponse.Content.ReadFromJsonAsync<ColumnResponse>();
-        Assert.Null(column!.WipLimit);
-
-        var response = await _client.PutAsJsonAsync($"/boards/{board.Id}/columns/{column.Id}", new UpdateColumnRequest(null, null, 5));
-        Assert.Equal(HttpStatusCode.OK, response.StatusCode);
-        var updated = await response.Content.ReadFromJsonAsync<ColumnResponse>();
-        Assert.Equal(5, updated!.WipLimit);
     }
 
     [Fact]
