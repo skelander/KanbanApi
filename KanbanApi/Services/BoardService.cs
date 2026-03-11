@@ -48,11 +48,14 @@ public class BoardService(AppDbContext db, ILogger<BoardService> logger) : IBoar
 
         db.BoardMembers.Add(new BoardMember { BoardId = board.Id, UserId = userId });
 
+        var backlog = new Column { Name = "Backlog", Position = 0, IsBacklog = true, BoardId = board.Id };
+        db.Columns.Add(backlog);
+
         string[] defaultColumns = ["To Do", "Doing", "Done"];
-        var columns = new List<Column>();
+        var columns = new List<Column> { backlog };
         for (int i = 0; i < defaultColumns.Length; i++)
         {
-            var col = new Column { Name = defaultColumns[i], Position = i, BoardId = board.Id };
+            var col = new Column { Name = defaultColumns[i], Position = i + 1, BoardId = board.Id };
             db.Columns.Add(col);
             columns.Add(col);
         }
@@ -69,7 +72,7 @@ public class BoardService(AppDbContext db, ILogger<BoardService> logger) : IBoar
             board.OwnerId,
             ownerUsername,
             [new UserResponse(userId, ownerUsername, ownerRole)],
-            columns.Select(c => new ColumnResponse(c.Id, c.Name, c.Position, c.WipLimit, c.BoardId, []))
+            columns.Select(c => new ColumnResponse(c.Id, c.Name, c.Position, c.WipLimit, c.IsBacklog, c.BoardId, []))
         ));
     }
 
@@ -167,7 +170,9 @@ public class BoardService(AppDbContext db, ILogger<BoardService> logger) : IBoar
         board.OwnerId,
         board.Owner.Username,
         board.Members.Select(m => new UserResponse(m.User.Id, m.User.Username, m.User.Role)),
-        board.Columns.Select(c => new ColumnResponse(c.Id, c.Name, c.Position, c.WipLimit, c.BoardId,
+        board.Columns
+            .OrderBy(c => c.IsBacklog ? 0 : 1).ThenBy(c => c.Position)
+            .Select(c => new ColumnResponse(c.Id, c.Name, c.Position, c.WipLimit, c.IsBacklog, c.BoardId,
             c.Cards.Select(card => new CardResponse(card.Id, card.Title, card.Description, card.Position, card.ColumnId,
                 card.StateHistory
                     .OrderBy(h => h.EnteredAt)

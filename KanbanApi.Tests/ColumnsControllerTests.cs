@@ -26,19 +26,19 @@ public class ColumnsControllerTests(KanbanApiFactory factory) : IClassFixture<Ka
     public async Task CreateColumn_AsMember_ReturnsCreated()
     {
         var board = await CreateBoardAsync();
-        // Board starts with 3 default columns (positions 0-2), new column gets position 3
+        // Board starts with 4 default columns (Backlog + positions 1-3), new column gets position 4
         var response = await _client.PostAsJsonAsync($"/boards/{board.Id}/columns", new CreateColumnRequest("Review"));
         Assert.Equal(HttpStatusCode.Created, response.StatusCode);
         var column = await response.Content.ReadFromJsonAsync<ColumnResponse>();
         Assert.Equal("Review", column!.Name);
-        Assert.Equal(3, column.Position);
+        Assert.Equal(4, column.Position);
     }
 
     [Fact]
     public async Task CreateMultipleColumns_PositionsIncrement()
     {
         var board = await CreateBoardAsync();
-        // Board starts with 3 default columns (positions 0-2)
+        // Board starts with 4 default columns (Backlog pos 0, To Do/Doing/Done pos 1-3)
         var r1 = await _client.PostAsJsonAsync($"/boards/{board.Id}/columns", new CreateColumnRequest("Col 4"));
         var r2 = await _client.PostAsJsonAsync($"/boards/{board.Id}/columns", new CreateColumnRequest("Col 5"));
         var r3 = await _client.PostAsJsonAsync($"/boards/{board.Id}/columns", new CreateColumnRequest("Col 6"));
@@ -57,8 +57,8 @@ public class ColumnsControllerTests(KanbanApiFactory factory) : IClassFixture<Ka
         var response = await _client.GetAsync($"/boards/{board.Id}/columns");
         Assert.Equal(HttpStatusCode.OK, response.StatusCode);
         var columns = await response.Content.ReadFromJsonAsync<List<ColumnResponse>>();
-        // 3 defaults + 2 added = 5
-        Assert.Equal(5, columns!.Count);
+        // 4 defaults (Backlog + To Do + Doing + Done) + 2 added = 6
+        Assert.Equal(6, columns!.Count);
         for (int i = 1; i < columns.Count; i++)
             Assert.True(columns[i - 1].Position <= columns[i].Position);
     }

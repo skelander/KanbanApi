@@ -19,8 +19,8 @@ public class ColumnService(AppDbContext db, ILogger<ColumnService> logger) : ICo
             return ServiceResult<IEnumerable<ColumnResponse>>.Forbidden();
 
         var columns = board.Columns
-            .OrderBy(c => c.Position)
-            .Select(c => new ColumnResponse(c.Id, c.Name, c.Position, c.WipLimit, c.BoardId, []));
+            .OrderBy(c => c.IsBacklog ? 0 : 1).ThenBy(c => c.Position)
+            .Select(c => new ColumnResponse(c.Id, c.Name, c.Position, c.WipLimit, c.IsBacklog, c.BoardId, []));
 
         return ServiceResult<IEnumerable<ColumnResponse>>.Ok(columns);
     }
@@ -43,7 +43,7 @@ public class ColumnService(AppDbContext db, ILogger<ColumnService> logger) : ICo
         await db.SaveChangesAsync(ct);
 
         logger.LogInformation("Created column {ColumnName} on board {BoardId}", column.Name, boardId);
-        return ServiceResult<ColumnResponse>.Ok(new ColumnResponse(column.Id, column.Name, column.Position, column.WipLimit, column.BoardId, []));
+        return ServiceResult<ColumnResponse>.Ok(new ColumnResponse(column.Id, column.Name, column.Position, column.WipLimit, column.IsBacklog, column.BoardId, []));
     }
 
     public async Task<ServiceResult<ColumnResponse>> UpdateColumnAsync(int boardId, int columnId, UpdateColumnRequest request, int userId, bool isAdmin = false, CancellationToken ct = default)
@@ -61,11 +61,11 @@ public class ColumnService(AppDbContext db, ILogger<ColumnService> logger) : ICo
         if (column is null) return ServiceResult<ColumnResponse>.NotFound();
 
         if (request.Name is not null) column.Name = request.Name;
-        if (request.Position.HasValue) column.Position = request.Position.Value;
+        if (request.Position.HasValue && !column.IsBacklog) column.Position = request.Position.Value;
         if (request.WipLimit.HasValue) column.WipLimit = request.WipLimit.Value;
 
         await db.SaveChangesAsync(ct);
-        return ServiceResult<ColumnResponse>.Ok(new ColumnResponse(column.Id, column.Name, column.Position, column.WipLimit, column.BoardId, []));
+        return ServiceResult<ColumnResponse>.Ok(new ColumnResponse(column.Id, column.Name, column.Position, column.WipLimit, column.IsBacklog, column.BoardId, []));
     }
 
     public async Task<ServiceResult> DeleteColumnAsync(int boardId, int columnId, int userId, bool isAdmin = false, CancellationToken ct = default)
@@ -83,6 +83,7 @@ public class ColumnService(AppDbContext db, ILogger<ColumnService> logger) : ICo
 
         var column = board.Columns.FirstOrDefault(c => c.Id == columnId);
         if (column is null) return ServiceResult.NotFound();
+        if (column.IsBacklog) return ServiceResult.Conflict();
 
         foreach (var card in column.Cards)
             db.CardStateHistories.RemoveRange(card.StateHistory);

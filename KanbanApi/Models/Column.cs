@@ -6,6 +6,7 @@ public class Column
     public required string Name { get; set; }
     public int Position { get; set; }
     public int? WipLimit { get; set; }
+    public bool IsBacklog { get; set; }
     public int BoardId { get; set; }
     public Board Board { get; set; } = null!;
     public ICollection<Card> Cards { get; set; } = [];

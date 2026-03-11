@@ -47,6 +47,7 @@ public class ColumnsController(IColumnService columnService) : ControllerBase
         var result = await columnService.DeleteColumnAsync(boardId, columnId, UserId, IsAdmin, ct);
         if (result.IsNotFound) return NotFound();
         if (result.IsForbidden) return Forbid();
+        if (result.IsConflict) return Conflict("Cannot delete the backlog column.");
         return NoContent();
     }
 }
