@@ -121,8 +121,26 @@ public class CardService(AppDbContext db, ILogger<CardService> logger) : ICardSe
             EnteredAt = now
         });
 
+        // Renormalize source column positions (if cross-column move)
+        if (columnId != request.TargetColumnId)
+        {
+            var sourceCards = await db.Cards
+                .Where(c => c.ColumnId == columnId && c.Id != cardId)
+                .OrderBy(c => c.Position)
+                .ToListAsync(ct);
+            for (int i = 0; i < sourceCards.Count; i++)
+                sourceCards[i].Position = i;
+        }
+
+        // Insert card at requested position and renormalize destination column
         card.ColumnId = request.TargetColumnId;
-        card.Position = request.Position;
+        var destCards = await db.Cards
+            .Where(c => c.ColumnId == request.TargetColumnId && c.Id != cardId)
+            .OrderBy(c => c.Position)
+            .ToListAsync(ct);
+        destCards.Insert(Math.Clamp(request.Position, 0, destCards.Count), card);
+        for (int i = 0; i < destCards.Count; i++)
+            destCards[i].Position = i;
 
         await db.SaveChangesAsync(ct);
         logger.LogInformation("Moved card {CardId} to column {TargetColumnId}", cardId, request.TargetColumnId);
