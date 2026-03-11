@@ -16,4 +16,12 @@ public class TestDataController(ITestDataService testDataService) : ControllerBa
         if (result.IsNotFound) return NotFound();
         return NoContent();
     }
+
+    [HttpPost("backlog")]
+    public async Task<IActionResult> SeedBacklog(int boardId, CancellationToken ct)
+    {
+        var result = await testDataService.SeedBacklogAsync(boardId, ct);
+        if (result.IsNotFound) return NotFound();
+        return NoContent();
+    }
 }

@@ -7,11 +7,31 @@ namespace KanbanApi.Services;
 public interface ITestDataService
 {
     Task<ServiceResult> SeedAsync(int boardId, CancellationToken ct = default);
+    Task<ServiceResult> SeedBacklogAsync(int boardId, CancellationToken ct = default);
 }
 
 public class TestDataService(AppDbContext db, ILogger<TestDataService> logger) : ITestDataService
 {
     private record SprintCard(string Title, string? Description, int ToDoDay, int? DoingDay, int? DoneDay);
+
+    private static readonly string[] BacklogItems =
+    [
+        "Dark mode support",
+        "Export board as PDF",
+        "Email notifications for card assignments",
+        "Recurring card templates",
+        "Board activity feed",
+        "Attach files to cards",
+        "Card due dates and reminders",
+        "Sub-tasks / checklists on cards",
+        "Custom labels and tags",
+        "Board templates library",
+        "Two-factor authentication",
+        "Keyboard shortcuts",
+        "Bulk move cards between columns",
+        "Card comments and @mentions",
+        "Time tracking per card",
+    ];
 
     // A simulated two-week sprint for a software project.
     // Days are relative to sprint start (0 = 14 days ago).
@@ -71,6 +91,45 @@ public class TestDataService(AppDbContext db, ILogger<TestDataService> logger) :
 
         await db.SaveChangesAsync(ct);
         logger.LogInformation("Seeded {Count} test cards for board {BoardId}", Cards.Length, boardId);
+        return ServiceResult.Ok();
+    }
+
+    public async Task<ServiceResult> SeedBacklogAsync(int boardId, CancellationToken ct = default)
+    {
+        var columns = await db.Columns
+            .Where(c => c.BoardId == boardId)
+            .ToListAsync(ct);
+
+        if (columns.Count == 0) return ServiceResult.NotFound();
+
+        var backlogCol = columns.FirstOrDefault(c => c.IsBacklog);
+        if (backlogCol is null) return ServiceResult.NotFound();
+
+        // Clear all existing cards (and their StateHistory via cascade) before seeding
+        var columnIds = columns.Select(c => c.Id).ToList();
+        var existing = await db.Cards.Where(c => columnIds.Contains(c.ColumnId)).ToListAsync(ct);
+        db.Cards.RemoveRange(existing);
+
+        var now = DateTime.UtcNow;
+        for (int i = 0; i < BacklogItems.Length; i++)
+        {
+            var entity = new Card
+            {
+                Title = BacklogItems[i],
+                ColumnId = backlogCol.Id,
+                Position = i,
+            };
+            entity.StateHistory.Add(new CardStateHistory
+            {
+                ColumnId = backlogCol.Id,
+                ColumnName = backlogCol.Name,
+                EnteredAt = now,
+            });
+            db.Cards.Add(entity);
+        }
+
+        await db.SaveChangesAsync(ct);
+        logger.LogInformation("Seeded {Count} backlog cards for board {BoardId}", BacklogItems.Length, boardId);
         return ServiceResult.Ok();
     }
 
