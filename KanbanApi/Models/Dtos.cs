@@ -27,7 +27,7 @@ public record UpdateBoardRequest(
 
 public record AddMemberRequest([Required] int UserId);
 
-public record BoardSummaryResponse(int Id, string Name, string? Description, int OwnerId, string OwnerUsername);
+public record BoardSummaryResponse(int Id, string Name, string? Description, int OwnerId, string OwnerUsername, int MemberCount);
 public record BoardResponse(int Id, string Name, string? Description, int OwnerId, string OwnerUsername, IEnumerable<UserResponse> Members, IEnumerable<ColumnResponse> Columns);
 
 // Columns

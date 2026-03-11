@@ -11,7 +11,7 @@ public class BoardService(AppDbContext db, ILogger<BoardService> logger) : IBoar
     {
         return await db.Boards
             .Where(b => isAdmin || b.Members.Any(m => m.UserId == userId))
-            .Select(b => new BoardSummaryResponse(b.Id, b.Name, b.Description, b.OwnerId, b.Owner.Username))
+            .Select(b => new BoardSummaryResponse(b.Id, b.Name, b.Description, b.OwnerId, b.Owner.Username, b.Members.Count))
             .ToListAsync(ct);
     }
 
