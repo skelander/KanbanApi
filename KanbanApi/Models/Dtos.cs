@@ -45,11 +45,11 @@ public record ColumnResponse(int Id, string Name, int Position, int? WipLimit, i
 // Cards
 public record CreateCardRequest(
     [Required][MaxLength(500)] string Title,
-    [MaxLength(5000)] string? Description);
+    [MaxLength(200)] string? Description);
 
 public record UpdateCardRequest(
     [MaxLength(500)] string? Title,
-    [MaxLength(5000)] string? Description,
+    [MaxLength(200)] string? Description,
     [Range(0, int.MaxValue)] int? Position);
 
 public record MoveCardRequest(
