@@ -25,6 +25,7 @@ builder.Services.AddScoped<IAuthService, AuthService>();
 builder.Services.AddScoped<IBoardService, BoardService>();
 builder.Services.AddScoped<IColumnService, ColumnService>();
 builder.Services.AddScoped<ICardService, CardService>();
+builder.Services.AddScoped<ITestDataService, TestDataService>();
 
 var jwtKey = builder.Configuration["Jwt:Key"];
 if (string.IsNullOrEmpty(jwtKey))

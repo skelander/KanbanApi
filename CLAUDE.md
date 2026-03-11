@@ -44,6 +44,7 @@ KanbanApi.Tests/
 - `PUT/DELETE /boards/{boardId}/columns/{columnId}/cards/{cardId}` — member or admin
 - `PUT /boards/{boardId}/columns/{columnId}/cards/{cardId}/move` — member or admin
 - `GET /health` — public
+- `POST /boards/{boardId}/testdata` — admin only; seeds 12 cards simulating a 2-week sprint with full CardStateHistory
 
 ## Architecture
 - Controllers depend on interfaces only

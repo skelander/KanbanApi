@@ -85,6 +85,7 @@ dotnet test KanbanApi.slnx
 | Method | Endpoint | Auth | Description |
 |--------|----------|------|-------------|
 | GET | `/health` | — | Health check |
+| POST | `/boards/{id}/testdata` | admin | Seed 12 cards simulating a two-week sprint |
 
 ### Authentication
 
