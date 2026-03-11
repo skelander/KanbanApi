@@ -40,20 +40,18 @@ public class TestDataService(AppDbContext db, ILogger<TestDataService> logger) :
 
         if (columns.Count == 0) return ServiceResult.NotFound();
 
+        // Clear all existing cards (and their StateHistory via cascade) before seeding
+        var columnIds = columns.Select(c => c.Id).ToList();
+        var existing = await db.Cards.Where(c => columnIds.Contains(c.ColumnId)).ToListAsync(ct);
+        db.Cards.RemoveRange(existing);
+
         var sprintStart = DateTime.UtcNow.AddDays(-14);
         var firstCol = columns.First();
         var lastCol = columns.Last();
         var midCol = columns.Count > 2 ? columns[columns.Count / 2] : null;
 
-        // Pre-load current max positions to avoid per-card DB queries
-        var positions = new Dictionary<int, int>();
-        foreach (var col in columns)
-        {
-            var max = await db.Cards
-                .Where(c => c.ColumnId == col.Id)
-                .MaxAsync(c => (int?)c.Position, ct);
-            positions[col.Id] = (max ?? -1) + 1;
-        }
+        // All positions start at 0 after the clear
+        var positions = columns.ToDictionary(c => c.Id, _ => 0);
 
         foreach (var card in Cards)
         {
