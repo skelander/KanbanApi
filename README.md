@@ -108,7 +108,7 @@ User ──< BoardMember >── Board ──< Column ──< Card ──< CardS
 
 - **Board**: has an owner (User) and multiple members (via BoardMember join table)
 - **Column**: belongs to a Board, has an optional WIP limit (enforced — create/move returns 409 when at limit)
-- **Card**: belongs to a Column, has a title (max 500 chars), optional description (max 200 chars), and tracks position
+- **Card**: belongs to a Column, has a title (max 100 chars), optional description (max 500 chars), and tracks position
 - **CardStateHistory**: records EnteredAt/ExitedAt timestamps for each column a card passes through — foundation for cycle time, lead time, and CFD metrics
 
 ## Configuration

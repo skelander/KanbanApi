@@ -49,7 +49,7 @@ KanbanApi.Tests/
 - Controllers depend on interfaces only
 - `ServiceResult<T>` pattern with `Ok/NotFound/Forbidden/Conflict` statuses — services return these, controllers map to HTTP; delete/void operations use the non-generic `ServiceResult`
 - WIP limit enforced on column: create card returns 409 if `Cards.Count >= WipLimit`; move card returns 409 on cross-column move if target is at limit
-- Card has optional `Description` (max 200 chars); title max 500 chars
+- Card has optional `Description` (max 500 chars); title max 100 chars
 - `isAdmin` flag on all service methods — admin users bypass membership checks
 - JWT: HMAC-SHA256, 8h expiry, claims: NameIdentifier (userId), Name, Role
 - CORS: allows `https://skelander.github.io` and `http://localhost:5173`
