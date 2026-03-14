@@ -38,13 +38,14 @@ KanbanApi.Tests/
 - `GET/PUT/DELETE /boards/{id}` — member or admin (update/delete: owner or admin)
 - `GET/POST /boards/{id}/members` — member or admin (POST: owner or admin)
 - `DELETE /boards/{id}/members/{userId}` — owner or admin (cannot remove owner)
-- `GET/POST /boards/{boardId}/columns` — member or admin
-- `PUT/DELETE /boards/{boardId}/columns/{columnId}` — member or admin
+- `GET /boards/{boardId}/columns` — member or admin (read-only; no create/update/delete)
 - `GET/POST /boards/{boardId}/columns/{columnId}/cards` — member or admin
 - `PUT/DELETE /boards/{boardId}/columns/{columnId}/cards/{cardId}` — member or admin
 - `PUT /boards/{boardId}/columns/{columnId}/cards/{cardId}/move` — member or admin
 - `GET /health` — public
-- `POST /boards/{boardId}/testdata` — admin only; seeds 12 cards simulating a 2-week sprint with full CardStateHistory
+- `POST /boards/{boardId}/testdata` — admin only; seeds multi-sprint dataset (~12 sprints, ~44 cards)
+- `POST /boards/{boardId}/testdata/backlog` — admin only; seeds 15 backlog items
+- `POST /boards/{boardId}/testdata/midsprint` — admin only; seeds mid-sprint snapshot (7 days into a 2-week sprint)
 
 ## Architecture
 - Controllers depend on interfaces only
@@ -87,7 +88,7 @@ Every card has a `CardStateHistory` collection tracking column transitions:
 Additional users created via `POST /auth/users` (admin only). Allowed roles: `user`, `admin`.
 
 ## Testing
-- 54 integration tests, all using `IClassFixture<KanbanApiFactory>`
+- 47 integration tests, all using `IClassFixture<KanbanApiFactory>`
 - `KanbanApiFactory`: SQLite :memory: kept-open connection, test JWT key override
 - Test command: `dotnet test KanbanApi.slnx`
 - dotnet at `C:\Program Files\dotnet\dotnet.exe` (not on PATH in bash — use PowerShell or full path)

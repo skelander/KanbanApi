@@ -35,7 +35,7 @@ The `appsettings.Development.json` (included in the repo) provides a local JWT k
 dotnet test KanbanApi.slnx
 ```
 
-54 integration tests using an in-memory SQLite database. No external dependencies required.
+47 integration tests using an in-memory SQLite database. No external dependencies required.
 
 ## API Endpoints
 
@@ -66,9 +66,6 @@ dotnet test KanbanApi.slnx
 | Method | Endpoint | Auth | Description |
 |--------|----------|------|-------------|
 | GET | `/boards/{boardId}/columns` | member/admin | List columns sorted by position |
-| POST | `/boards/{boardId}/columns` | member/admin | Create column |
-| PUT | `/boards/{boardId}/columns/{columnId}` | member/admin | Update column (name, position, WIP limit) |
-| DELETE | `/boards/{boardId}/columns/{columnId}` | member/admin | Delete column |
 
 ### Cards
 
@@ -85,7 +82,9 @@ dotnet test KanbanApi.slnx
 | Method | Endpoint | Auth | Description |
 |--------|----------|------|-------------|
 | GET | `/health` | — | Health check |
-| POST | `/boards/{id}/testdata` | admin | Seed 12 cards simulating a two-week sprint |
+| POST | `/boards/{id}/testdata` | admin | Seed multi-sprint dataset (~12 sprints of history) |
+| POST | `/boards/{id}/testdata/backlog` | admin | Seed backlog with 15 items |
+| POST | `/boards/{id}/testdata/midsprint` | admin | Seed a mid-sprint snapshot (7 days into a 2-week sprint) |
 
 ### Authentication
 
