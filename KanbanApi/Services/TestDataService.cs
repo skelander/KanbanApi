@@ -51,37 +51,59 @@ public class TestDataService(AppDbContext db, ILogger<TestDataService> logger) :
         new("User profile page",          null,                                                           6,  null, null),
     ];
 
-    // A simulated two-week sprint for a software project.
-    // Days are relative to sprint start (0 = 14 days ago).
-    private static readonly SprintCard[] Cards =
+    // Multi-sprint dataset: 7 two-week sprints (~14 weeks of team history).
+    // ToDoAgo/DoingAgo/DoneAgo are days before today when each transition occurred.
+    // Highlights: zombie items (54d, 40d in To Do), aging WIP, and completed work.
+    private record MultiSprintCard(string Title, string? Description, int ToDoAgo, int? DoingAgo, int? DoneAgo);
+
+    private static readonly MultiSprintCard[] MultiSprintCards =
     [
-        // Done
-        new("Database schema design",        "Define entity relationships and index strategy.",              0,  1,  3),
-        new("Set up CI/CD pipeline",         "Configure GitHub Actions for build, test, and deploy.",       0,  2,  5),
-        new("Design system components",      "Button, input, card, and modal base components.",             0,  2,  4),
-        new("User authentication",           "Implement JWT login flow with role-based access control.",    1,  3,  7),
-        new("User roles and permissions",    "Admin, member, and viewer role enforcement on all routes.",   1,  3,  8),
-        new("API rate limiting",             "Per-IP fixed-window rate limiting on sensitive endpoints.",   3,  6, 10),
-        new("Board management UI",           "Create, rename, archive, and delete boards.",                 2,  5, 11),
-        new("Responsive layout",             "Ensure the app works on mobile and tablet screen sizes.",     4,  8, 12),
-        new("Logging and error handling",    "Structured logging with correlation IDs; global error page.", 2,  6, 13),
-        // Doing
-        new("Implement search feature",      "Full-text search across cards and board names.",              6,  9, null),
-        new("Fix mobile login bug",          "Login form fails to submit on iOS Safari — investigate.",     8, 10, null),
-        new("Write integration tests",       "Cover auth, boards, columns, and cards endpoints.",           9, 11, null),
-        new("File upload service",           "Allow attachments on cards; store in object storage.",        3,  9, null),
-        new("Email notification service",    "Notify members on card assignment and due date changes.",     5, 12, null),
-        // To Do
-        new("Add pagination to endpoints",   null,                                                          5, null, null),
-        new("Performance optimization",      "Investigate slow board load on large datasets.",              6, null, null),
-        new("Update API documentation",      null,                                                          7, null, null),
-        new("Code review: auth module",      null,                                                          8, null, null),
-        new("Refactor database queries",     "Eliminate N+1 queries in board and card loading.",            9, null, null),
-        new("Accessibility audit",           "WCAG 2.1 AA compliance check; fix critical violations.",     10, null, null),
+        // Sprint 1 (98–84 days ago) — all done
+        new("Initial project setup",     "Scaffold the project, configure linting, and set up local dev environment.", 97, 96, 94),
+        new("Core data models",          "Define User, Board, Column, and Card entities with EF Core.",                96, 94, 91),
+        new("Basic API structure",       "Set up controller routing, middleware pipeline, and error handling.",        95, 93, 88),
+
+        // Sprint 2 (84–70 days ago) — all done
+        new("User registration",         "Registration endpoint with validation and email uniqueness check.",          83, 82, 78),
+        new("JWT authentication",        "Implement JWT issuance and validation with role-based claims.",              83, 80, 75),
+        new("Password security",         "BCrypt hashing, salt rounds, and brute-force protection.",                  82, 78, 72),
+
+        // Sprint 3 (70–56 days ago) — all done
+        new("Board CRUD",                "Create, read, update, and delete boards with ownership checks.",            69, 68, 64),
+        new("Column management",         "Reorder columns; enforce position uniqueness per board.",                   69, 66, 61),
+        new("Card creation and editing", "Full card lifecycle: create, update title/description, delete.",            68, 64, 58),
+        new("Drag-and-drop reordering",  "Reorder cards within and across columns via position updates.",             67, 62, 57),
+
+        // Sprint 4 (56–42 days ago) — 3 done, 1 zombie in To Do
+        new("WIP limits",                "Configurable per-column WIP limits with 409 Conflict enforcement.",         55, 54, 51),
+        new("Board memberships",         "Invite users to boards; owner and member permission model.",                55, 52, 47),
+        new("Card state history",        "Track column transitions with timestamps for analytics.",                   54, 50, 44),
+        new("Accessibility improvements","WCAG 2.1 AA audit: fix contrast ratios and keyboard navigation.",           54, null, null), // zombie
+
+        // Sprint 5 (42–28 days ago) — 3 done, 1 stuck in To Do
+        new("Full-text search",          "Search cards and boards by keyword using EF Core LIKE queries.",            41, 40, 36),
+        new("File attachments",          "Upload and serve file attachments on cards via object storage.",            41, 37, 33),
+        new("Performance profiling",     "Identify and fix slow queries; add missing indexes.",                       39, 35, 30),
+        new("Email notifications",       "Transactional emails for card assignments and due date reminders.",         40, null, null), // stuck
+
+        // Sprint 6 (28–14 days ago) — 2 done, 2 in Doing, 1 in To Do
+        new("Dark mode",                 "System-preference-aware dark theme using CSS custom properties.",           27, 26, 22),
+        new("Mobile responsive layout",  "Ensure all views work correctly on phones and tablets.",                   27, 23, 18),
+        new("User profile page",         "Avatar, display name, and notification preference settings.",              26, 19, null), // doing
+        new("Board analytics dashboard", "Throughput, WIP, and cycle time summary per board.",                       25, 17, null), // doing
+        new("API documentation",         "OpenAPI/Swagger spec for all endpoints with request/response examples.",   24, null, null), // to do
+
+        // Sprint 7 (14–0 days ago, current) — 1 done, 2 in Doing, 3 in To Do
+        new("Keyboard shortcuts",        "Global keyboard shortcuts for common actions (new card, move, etc.).",      13, 12, 9),
+        new("Bulk card operations",      "Select multiple cards to move, label, or delete in one action.",           13, 10, null), // doing
+        new("Card due dates",            "Set, display, and filter cards by due date; highlight overdue cards.",      12, 8,  null), // doing
+        new("Sub-tasks / checklists",    "Nested checklist items on cards with completion tracking.",                 11, null, null),
+        new("Activity feed",             "Per-board feed of all card and member activity.",                           10, null, null),
+        new("Recurring card templates",  "Schedule cards to be created automatically at a set interval.",             8, null, null),
     ];
 
     public Task<ServiceResult> SeedAsync(int boardId, CancellationToken ct = default) =>
-        SeedSprintAsync(boardId, Cards, daysAgo: 14, ct);
+        SeedMultiSprintAsync(boardId, ct);
 
     public Task<ServiceResult> SeedMidSprintAsync(int boardId, CancellationToken ct = default) =>
         SeedSprintAsync(boardId, MidSprintCards, daysAgo: 7, ct);
@@ -125,6 +147,107 @@ public class TestDataService(AppDbContext db, ILogger<TestDataService> logger) :
         await db.SaveChangesAsync(ct);
         logger.LogInformation("Seeded {Count} sprint cards for board {BoardId}", cards.Length, boardId);
         return ServiceResult.Ok();
+    }
+
+    private async Task<ServiceResult> SeedMultiSprintAsync(int boardId, CancellationToken ct)
+    {
+        var columns = await db.Columns
+            .Where(c => c.BoardId == boardId)
+            .OrderBy(c => c.Position)
+            .ToListAsync(ct);
+
+        if (columns.Count == 0) return ServiceResult.NotFound();
+
+        var columnIds = columns.Select(c => c.Id).ToList();
+        var existing = await db.Cards.Where(c => columnIds.Contains(c.ColumnId)).ToListAsync(ct);
+        db.Cards.RemoveRange(existing);
+
+        var now = DateTime.UtcNow;
+        var backlogCol = columns.First(c => c.IsBacklog);
+        var workCols = columns.Where(c => !c.IsBacklog).OrderBy(c => c.Position).ToList();
+        var toDoCol = workCols.Count > 0 ? workCols[0] : backlogCol;
+        var lastCol = workCols.Count > 0 ? workCols[workCols.Count - 1] : backlogCol;
+        var doingCol = workCols.Count > 2 ? workCols[workCols.Count / 2] : null;
+
+        var positions = columns.ToDictionary(c => c.Id, _ => 0);
+
+        foreach (var card in MultiSprintCards)
+        {
+            var targetCol = card.DoneAgo.HasValue ? lastCol
+                : card.DoingAgo.HasValue && doingCol is not null ? doingCol
+                : toDoCol;
+
+            var entity = new Card
+            {
+                Title = card.Title,
+                Description = card.Description,
+                ColumnId = targetCol.Id,
+                Position = positions[targetCol.Id]++,
+            };
+            BuildAbsoluteHistory(entity, card, backlogCol, toDoCol, doingCol, lastCol, now);
+            db.Cards.Add(entity);
+        }
+
+        await db.SaveChangesAsync(ct);
+        logger.LogInformation("Seeded {Count} multi-sprint cards for board {BoardId}", MultiSprintCards.Length, boardId);
+        return ServiceResult.Ok();
+    }
+
+    private static void BuildAbsoluteHistory(
+        Card entity, MultiSprintCard card,
+        Column backlogCol, Column toDoCol, Column? doingCol, Column lastCol,
+        DateTime now)
+    {
+        var toDoEntered = now.AddDays(-card.ToDoAgo);
+        var backlogEntered = toDoEntered.AddDays(-1);
+
+        entity.StateHistory.Add(new CardStateHistory
+        {
+            ColumnId = backlogCol.Id, ColumnName = backlogCol.Name,
+            EnteredAt = backlogEntered, ExitedAt = toDoEntered,
+        });
+
+        if (!card.DoingAgo.HasValue)
+        {
+            entity.StateHistory.Add(new CardStateHistory
+            {
+                ColumnId = toDoCol.Id, ColumnName = toDoCol.Name,
+                EnteredAt = toDoEntered,
+            });
+            return;
+        }
+
+        var doingEntered = now.AddDays(-card.DoingAgo.Value);
+        entity.StateHistory.Add(new CardStateHistory
+        {
+            ColumnId = toDoCol.Id, ColumnName = toDoCol.Name,
+            EnteredAt = toDoEntered, ExitedAt = doingEntered,
+        });
+
+        if (!card.DoneAgo.HasValue)
+        {
+            entity.StateHistory.Add(new CardStateHistory
+            {
+                ColumnId = doingCol!.Id, ColumnName = doingCol.Name,
+                EnteredAt = doingEntered,
+            });
+            return;
+        }
+
+        var doneEntered = now.AddDays(-card.DoneAgo.Value);
+        if (doingCol is not null)
+        {
+            entity.StateHistory.Add(new CardStateHistory
+            {
+                ColumnId = doingCol.Id, ColumnName = doingCol.Name,
+                EnteredAt = doingEntered, ExitedAt = doneEntered,
+            });
+        }
+        entity.StateHistory.Add(new CardStateHistory
+        {
+            ColumnId = lastCol.Id, ColumnName = lastCol.Name,
+            EnteredAt = doneEntered,
+        });
     }
 
     public async Task<ServiceResult> SeedBacklogAsync(int boardId, CancellationToken ct = default)
