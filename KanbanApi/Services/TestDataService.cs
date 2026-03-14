@@ -8,6 +8,7 @@ public interface ITestDataService
 {
     Task<ServiceResult> SeedAsync(int boardId, CancellationToken ct = default);
     Task<ServiceResult> SeedBacklogAsync(int boardId, CancellationToken ct = default);
+    Task<ServiceResult> SeedMidSprintAsync(int boardId, CancellationToken ct = default);
 }
 
 public class TestDataService(AppDbContext db, ILogger<TestDataService> logger) : ITestDataService
@@ -33,6 +34,23 @@ public class TestDataService(AppDbContext db, ILogger<TestDataService> logger) :
         "Time tracking per card",
     ];
 
+    // Mid-sprint snapshot: 2-week sprint, currently at day 7.
+    // Some items done early, some actively in progress, some aging in To Do.
+    // Days are relative to sprint start (0 = 7 days ago).
+    private static readonly SprintCard[] MidSprintCards =
+    [
+        new("Set up CI/CD pipeline",      "Configure GitHub Actions for build, test, and deploy.",        0,  0,  1),
+        new("Database migrations",        "Define entity relationships and run initial migrations.",       0,  1,  3),
+        new("User auth endpoints",        "Implement JWT login and registration endpoints.",               0,  2,  5),
+        new("Login UI",                   "Build login and registration forms.",                          0,  3,  null),
+        new("Write auth tests",           "Integration tests for the authentication flow.",               1,  5,  null),
+        new("Fix signup validation bug",  "Signup form accepts invalid email addresses — hotfix.",        6,  6,  null),
+        new("Password reset flow",        "Allow users to reset password via email link.",                0,  null, null),
+        new("Dashboard layout",           "Design and implement the main dashboard UI.",                  2,  null, null),
+        new("API rate limiting",          "Per-IP fixed-window rate limiting on login endpoint.",         4,  null, null),
+        new("User profile page",          null,                                                           6,  null, null),
+    ];
+
     // A simulated two-week sprint for a software project.
     // Days are relative to sprint start (0 = 14 days ago).
     private static readonly SprintCard[] Cards =
@@ -51,7 +69,13 @@ public class TestDataService(AppDbContext db, ILogger<TestDataService> logger) :
         new("Refactor database queries",     "Eliminate N+1 queries in board and card loading.",            9, null, null),
     ];
 
-    public async Task<ServiceResult> SeedAsync(int boardId, CancellationToken ct = default)
+    public Task<ServiceResult> SeedAsync(int boardId, CancellationToken ct = default) =>
+        SeedSprintAsync(boardId, Cards, daysAgo: 14, ct);
+
+    public Task<ServiceResult> SeedMidSprintAsync(int boardId, CancellationToken ct = default) =>
+        SeedSprintAsync(boardId, MidSprintCards, daysAgo: 7, ct);
+
+    private async Task<ServiceResult> SeedSprintAsync(int boardId, SprintCard[] cards, int daysAgo, CancellationToken ct)
     {
         var columns = await db.Columns
             .Where(c => c.BoardId == boardId)
@@ -60,22 +84,20 @@ public class TestDataService(AppDbContext db, ILogger<TestDataService> logger) :
 
         if (columns.Count == 0) return ServiceResult.NotFound();
 
-        // Clear all existing cards (and their StateHistory via cascade) before seeding
         var columnIds = columns.Select(c => c.Id).ToList();
         var existing = await db.Cards.Where(c => columnIds.Contains(c.ColumnId)).ToListAsync(ct);
         db.Cards.RemoveRange(existing);
 
-        var sprintStart = DateTime.UtcNow.AddDays(-14);
+        var sprintStart = DateTime.UtcNow.AddDays(-daysAgo);
         var backlogCol = columns.First(c => c.IsBacklog);
         var workCols = columns.Where(c => !c.IsBacklog).OrderBy(c => c.Position).ToList();
         var toDoCol = workCols.Count > 0 ? workCols[0] : backlogCol;
         var lastCol = workCols.Count > 0 ? workCols[workCols.Count - 1] : backlogCol;
         var doingCol = workCols.Count > 2 ? workCols[workCols.Count / 2] : null;
 
-        // All positions start at 0 after the clear
         var positions = columns.ToDictionary(c => c.Id, _ => 0);
 
-        foreach (var card in Cards)
+        foreach (var card in cards)
         {
             var targetCol = TargetColumn(card, toDoCol, doingCol, lastCol);
             var entity = new Card
@@ -90,7 +112,7 @@ public class TestDataService(AppDbContext db, ILogger<TestDataService> logger) :
         }
 
         await db.SaveChangesAsync(ct);
-        logger.LogInformation("Seeded {Count} test cards for board {BoardId}", Cards.Length, boardId);
+        logger.LogInformation("Seeded {Count} sprint cards for board {BoardId}", cards.Length, boardId);
         return ServiceResult.Ok();
     }
 

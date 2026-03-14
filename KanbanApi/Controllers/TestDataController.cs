@@ -24,4 +24,12 @@ public class TestDataController(ITestDataService testDataService) : ControllerBa
         if (result.IsNotFound) return NotFound();
         return NoContent();
     }
+
+    [HttpPost("midsprint")]
+    public async Task<IActionResult> SeedMidSprint(int boardId, CancellationToken ct)
+    {
+        var result = await testDataService.SeedMidSprintAsync(boardId, ct);
+        if (result.IsNotFound) return NotFound();
+        return NoContent();
+    }
 }
