@@ -55,18 +55,29 @@ public class TestDataService(AppDbContext db, ILogger<TestDataService> logger) :
     // Days are relative to sprint start (0 = 14 days ago).
     private static readonly SprintCard[] Cards =
     [
+        // Done
         new("Database schema design",        "Define entity relationships and index strategy.",              0,  1,  3),
         new("Set up CI/CD pipeline",         "Configure GitHub Actions for build, test, and deploy.",       0,  2,  5),
+        new("Design system components",      "Button, input, card, and modal base components.",             0,  2,  4),
         new("User authentication",           "Implement JWT login flow with role-based access control.",    1,  3,  7),
+        new("User roles and permissions",    "Admin, member, and viewer role enforcement on all routes.",   1,  3,  8),
         new("API rate limiting",             "Per-IP fixed-window rate limiting on sensitive endpoints.",   3,  6, 10),
+        new("Board management UI",           "Create, rename, archive, and delete boards.",                 2,  5, 11),
+        new("Responsive layout",             "Ensure the app works on mobile and tablet screen sizes.",     4,  8, 12),
+        new("Logging and error handling",    "Structured logging with correlation IDs; global error page.", 2,  6, 13),
+        // Doing
         new("Implement search feature",      "Full-text search across cards and board names.",              6,  9, null),
         new("Fix mobile login bug",          "Login form fails to submit on iOS Safari — investigate.",     8, 10, null),
         new("Write integration tests",       "Cover auth, boards, columns, and cards endpoints.",           9, 11, null),
+        new("File upload service",           "Allow attachments on cards; store in object storage.",        3,  9, null),
+        new("Email notification service",    "Notify members on card assignment and due date changes.",     5, 12, null),
+        // To Do
         new("Add pagination to endpoints",   null,                                                          5, null, null),
         new("Performance optimization",      "Investigate slow board load on large datasets.",              6, null, null),
         new("Update API documentation",      null,                                                          7, null, null),
         new("Code review: auth module",      null,                                                          8, null, null),
         new("Refactor database queries",     "Eliminate N+1 queries in board and card loading.",            9, null, null),
+        new("Accessibility audit",           "WCAG 2.1 AA compliance check; fix critical violations.",     10, null, null),
     ];
 
     public Task<ServiceResult> SeedAsync(int boardId, CancellationToken ct = default) =>
