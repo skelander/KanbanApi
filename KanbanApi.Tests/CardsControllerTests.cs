@@ -133,7 +133,7 @@ public class CardsControllerTests(KanbanApiFactory factory) : IClassFixture<Kanb
         var columns = board.Columns.ToList();
         var col1 = columns[0]; // Backlog
         var col2 = columns[1]; // Todo
-        var col3 = columns[2]; // Resq
+        var col3 = columns[2]; // Reqs
 
         var created = await (await _client.PostAsJsonAsync(
             $"/boards/{board.Id}/columns/{col1.Id}/cards",
@@ -144,7 +144,7 @@ public class CardsControllerTests(KanbanApiFactory factory) : IClassFixture<Kanb
             $"/boards/{board.Id}/columns/{col1.Id}/cards/{created!.Id}/move",
             new MoveCardRequest(col2.Id, 0));
 
-        // Move: Todo → Resq
+        // Move: Todo → Reqs
         var response = await _client.PutAsJsonAsync(
             $"/boards/{board.Id}/columns/{col2.Id}/cards/{created.Id}/move",
             new MoveCardRequest(col3.Id, 0));

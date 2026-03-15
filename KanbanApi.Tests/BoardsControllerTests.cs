@@ -59,7 +59,7 @@ public class BoardsControllerTests(KanbanApiFactory factory) : IClassFixture<Kan
         Assert.Equal("Backlog", columns[0].Name);
         Assert.True(columns[0].IsBacklog);
         Assert.Equal("Todo", columns[1].Name);
-        Assert.Equal("Resq", columns[2].Name);
+        Assert.Equal("Reqs", columns[2].Name);
         Assert.Equal("Code", columns[3].Name);
         Assert.Equal("Test", columns[4].Name);
         Assert.Equal("Done", columns[5].Name);

@@ -53,7 +53,7 @@ dotnet test KanbanApi.slnx
 | Method | Endpoint | Auth | Description |
 |--------|----------|------|-------------|
 | GET | `/boards` | user/admin | List boards (members see own boards; admin sees all) |
-| POST | `/boards` | admin | Create board (auto-creates Todo / Resq / Code / Test / Done columns) |
+| POST | `/boards` | admin | Create board (auto-creates Todo / Reqs / Code / Test / Done columns) |
 | GET | `/boards/{id}` | member/admin | Get board with columns and members |
 | PUT | `/boards/{id}` | owner/admin | Update board name or description |
 | DELETE | `/boards/{id}` | owner/admin | Delete board |

@@ -29,7 +29,7 @@ public class ColumnsControllerTests(KanbanApiFactory factory) : IClassFixture<Ka
         var response = await _client.GetAsync($"/boards/{board.Id}/columns");
         Assert.Equal(HttpStatusCode.OK, response.StatusCode);
         var columns = await response.Content.ReadFromJsonAsync<List<ColumnResponse>>();
-        // 6 defaults: Backlog + Todo + Resq + Code + Test + Done
+        // 6 defaults: Backlog + Todo + Reqs + Code + Test + Done
         Assert.Equal(6, columns!.Count);
         Assert.True(columns[0].IsBacklog);
         for (int i = 1; i < columns.Count; i++)
