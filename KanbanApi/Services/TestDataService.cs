@@ -1,3 +1,4 @@
+using System.Text.Json;
 using KanbanApi.Data;
 using KanbanApi.Models;
 using Microsoft.EntityFrameworkCore;
@@ -9,13 +10,16 @@ public interface ITestDataService
     Task<ServiceResult> SeedAsync(int boardId, CancellationToken ct = default);
     Task<ServiceResult> SeedBacklogAsync(int boardId, CancellationToken ct = default);
     Task<ServiceResult> SeedMidSprintAsync(int boardId, CancellationToken ct = default);
+    Task<string?> GetDatasetAsync(string name, CancellationToken ct = default);
+    Task<bool> UpdateDatasetAsync(string name, string dataJson, CancellationToken ct = default);
 }
 
 public class TestDataService(AppDbContext db, ILogger<TestDataService> logger) : ITestDataService
 {
-    private record SprintCard(string Title, string? Description, int ToDoDay, int? DoingDay, int? DoneDay);
+    public record SprintCard(string Title, string? Description, int ToDoDay, int? DoingDay, int? DoneDay);
+    public record MultiSprintCard(string Title, string? Description, int TodoAgo, int? DoingAgo, int? DoneAgo, int DoingColOffset = 0);
 
-    private static readonly string[] BacklogItems =
+    private static readonly string[] DefaultBacklogItems =
     [
         "Dark mode support",
         "Export board as PDF",
@@ -37,7 +41,7 @@ public class TestDataService(AppDbContext db, ILogger<TestDataService> logger) :
     // Mid-sprint snapshot: 2-week sprint, currently at day 7.
     // Some items done early, some actively in progress, some aging in To Do.
     // Days are relative to sprint start (0 = 7 days ago).
-    private static readonly SprintCard[] MidSprintCards =
+    private static readonly SprintCard[] DefaultMidSprintCards =
     [
         new("Set up CI/CD pipeline",      "Configure GitHub Actions for build, test, and deploy.",        0,  0,  1),
         new("Database migrations",        "Define entity relationships and run initial migrations.",       0,  1,  3),
@@ -54,13 +58,7 @@ public class TestDataService(AppDbContext db, ILogger<TestDataService> logger) :
     // Multi-sprint dataset: 5 two-week sprints (~10 weeks of team history).
     // TodoAgo/DoingAgo/DoneAgo are days before today when each transition occurred.
     // DoingColOffset: -1=Reqs, 0=Code (default), +1=Test
-    // Sprints 1–4: all cards done by sprint end. Sprint 5 (current): work in progress.
-    // Seeding always recreates the work columns to match MultiSprintColumns.
-    private record MultiSprintCard(string Title, string? Description, int TodoAgo, int? DoingAgo, int? DoneAgo, int DoingColOffset = 0);
-
-    private static readonly string[] MultiSprintColumns = ["Todo", "Reqs", "Code", "Test", "Done"];
-
-    private static readonly MultiSprintCard[] MultiSprintCards =
+    private static readonly MultiSprintCard[] DefaultMultiSprintCards =
     [
         // Sprint 1 (70–56 days ago) — all done
         new("Repo setup and CI/CD",      "GitHub repo, branch protection, Actions pipeline, and team access.",        69, 68, 65),
@@ -88,20 +86,69 @@ public class TestDataService(AppDbContext db, ILogger<TestDataService> logger) :
 
         // Sprint 5 (14–0 days ago, current) — 1 done, 3 in Doing (Reqs/Code/Test), 2 in Todo
         new("Dark mode",                 "System-preference-aware dark theme using CSS custom properties.",            13, 12, 9),
-        new("Keyboard shortcuts",        "Global shortcuts for common actions: new card, move, delete.",               12, 8,  null, DoingColOffset: -1), // Reqs
-        new("Sub-tasks / checklists",    "Nested checklist items on cards with per-item completion tracking.",         11, 7,  null),                     // Code
-        new("Card due dates",            "Set, display, and filter by due date; highlight overdue cards.",             10, 5,  null, DoingColOffset: 1),  // Test
+        new("Keyboard shortcuts",        "Global shortcuts for common actions: new card, move, delete.",               12, 8,  null, DoingColOffset: -1),
+        new("Sub-tasks / checklists",    "Nested checklist items on cards with per-item completion tracking.",         11, 7,  null),
+        new("Card due dates",            "Set, display, and filter by due date; highlight overdue cards.",             10, 5,  null, DoingColOffset: 1),
         new("Activity feed",             "Per-board feed of all card and member activity.",                            9,  null, null),
         new("Bulk card operations",      "Select multiple cards to move, label, or delete in one action.",             8,  null, null),
     ];
+
+    private static readonly string[] MultiSprintColumns = ["Todo", "Reqs", "Code", "Test", "Done"];
+
+    private static readonly JsonSerializerOptions JsonOptions = new() { PropertyNameCaseInsensitive = true };
+
+    public const string MultiSprintDatasetName = "multisprint";
+    public const string MidSprintDatasetName = "midsprint";
+    public const string BacklogDatasetName = "backlog";
+
+    public static readonly IReadOnlySet<string> ValidDatasetNames =
+        new HashSet<string> { MultiSprintDatasetName, MidSprintDatasetName, BacklogDatasetName };
+
+    public async Task<string?> GetDatasetAsync(string name, CancellationToken ct = default)
+    {
+        if (!ValidDatasetNames.Contains(name)) return null;
+        var stored = await db.SeedDatasets.FindAsync(new object[] { name }, ct);
+        if (stored is not null) return stored.DataJson;
+
+        // Return defaults (without persisting — no board context here)
+        return name switch
+        {
+            MultiSprintDatasetName => JsonSerializer.Serialize(DefaultMultiSprintCards),
+            MidSprintDatasetName => JsonSerializer.Serialize(DefaultMidSprintCards),
+            BacklogDatasetName => JsonSerializer.Serialize(DefaultBacklogItems),
+            _ => null
+        };
+    }
+
+    public async Task<bool> UpdateDatasetAsync(string name, string dataJson, CancellationToken ct = default)
+    {
+        if (!ValidDatasetNames.Contains(name)) return false;
+        var stored = await db.SeedDatasets.FindAsync(new object[] { name }, ct);
+        if (stored is null)
+            db.SeedDatasets.Add(new SeedDataset { Name = name, DataJson = dataJson });
+        else
+            stored.DataJson = dataJson;
+        await db.SaveChangesAsync(ct);
+        return true;
+    }
 
     public Task<ServiceResult> SeedAsync(int boardId, CancellationToken ct = default) =>
         SeedMultiSprintAsync(boardId, ct);
 
     public Task<ServiceResult> SeedMidSprintAsync(int boardId, CancellationToken ct = default) =>
-        SeedSprintAsync(boardId, MidSprintCards, daysAgo: 7, ct);
+        SeedSprintAsync(boardId, MidSprintDatasetName, DefaultMidSprintCards, daysAgo: 7, ct);
 
-    private async Task<ServiceResult> SeedSprintAsync(int boardId, SprintCard[] cards, int daysAgo, CancellationToken ct)
+    private async Task<SprintCard[]> LoadSprintCardsAsync(string name, SprintCard[] defaults, CancellationToken ct)
+    {
+        var stored = await db.SeedDatasets.FindAsync(new object[] { name }, ct);
+        if (stored is not null)
+            return JsonSerializer.Deserialize<SprintCard[]>(stored.DataJson, JsonOptions) ?? defaults;
+        db.SeedDatasets.Add(new SeedDataset { Name = name, DataJson = JsonSerializer.Serialize(defaults) });
+        await db.SaveChangesAsync(ct);
+        return defaults;
+    }
+
+    private async Task<ServiceResult> SeedSprintAsync(int boardId, string datasetName, SprintCard[] defaults, int daysAgo, CancellationToken ct)
     {
         var columns = await db.Columns
             .Where(c => c.BoardId == boardId)
@@ -109,6 +156,8 @@ public class TestDataService(AppDbContext db, ILogger<TestDataService> logger) :
             .ToListAsync(ct);
 
         if (columns.Count == 0) return ServiceResult.NotFound();
+
+        var cards = await LoadSprintCardsAsync(datasetName, defaults, ct);
 
         var columnIds = columns.Select(c => c.Id).ToList();
         var existing = await db.Cards.Where(c => columnIds.Contains(c.ColumnId)).ToListAsync(ct);
@@ -151,6 +200,18 @@ public class TestDataService(AppDbContext db, ILogger<TestDataService> logger) :
 
         if (columns.Count == 0) return ServiceResult.NotFound();
 
+        var stored = await db.SeedDatasets.FindAsync(new object[] { MultiSprintDatasetName }, ct);
+        MultiSprintCard[] cards;
+        if (stored is not null)
+        {
+            cards = JsonSerializer.Deserialize<MultiSprintCard[]>(stored.DataJson, JsonOptions) ?? DefaultMultiSprintCards;
+        }
+        else
+        {
+            cards = DefaultMultiSprintCards;
+            db.SeedDatasets.Add(new SeedDataset { Name = MultiSprintDatasetName, DataJson = JsonSerializer.Serialize(DefaultMultiSprintCards) });
+        }
+
         // Remove all existing cards
         var columnIds = columns.Select(c => c.Id).ToList();
         var existing = await db.Cards.Where(c => columnIds.Contains(c.ColumnId)).ToListAsync(ct);
@@ -177,7 +238,7 @@ public class TestDataService(AppDbContext db, ILogger<TestDataService> logger) :
         var positions = workCols.ToDictionary(c => c.Id, _ => 0);
         positions[backlogCol.Id] = 0;
 
-        foreach (var card in MultiSprintCards)
+        foreach (var card in cards)
         {
             Column? cardDoingCol = null;
             if (card.DoingAgo.HasValue)
@@ -202,7 +263,7 @@ public class TestDataService(AppDbContext db, ILogger<TestDataService> logger) :
         }
 
         await db.SaveChangesAsync(ct);
-        logger.LogInformation("Seeded {Count} multi-sprint cards for board {BoardId}", MultiSprintCards.Length, boardId);
+        logger.LogInformation("Seeded {Count} multi-sprint cards for board {BoardId}", cards.Length, boardId);
         return ServiceResult.Ok();
     }
 
@@ -274,17 +335,28 @@ public class TestDataService(AppDbContext db, ILogger<TestDataService> logger) :
         var backlogCol = columns.FirstOrDefault(c => c.IsBacklog);
         if (backlogCol is null) return ServiceResult.NotFound();
 
-        // Clear all existing cards (and their StateHistory via cascade) before seeding
+        var stored = await db.SeedDatasets.FindAsync(new object[] { BacklogDatasetName }, ct);
+        string[] items;
+        if (stored is not null)
+        {
+            items = JsonSerializer.Deserialize<string[]>(stored.DataJson, JsonOptions) ?? DefaultBacklogItems;
+        }
+        else
+        {
+            items = DefaultBacklogItems;
+            db.SeedDatasets.Add(new SeedDataset { Name = BacklogDatasetName, DataJson = JsonSerializer.Serialize(DefaultBacklogItems) });
+        }
+
         var columnIds = columns.Select(c => c.Id).ToList();
         var existing = await db.Cards.Where(c => columnIds.Contains(c.ColumnId)).ToListAsync(ct);
         db.Cards.RemoveRange(existing);
 
         var now = DateTime.UtcNow;
-        for (int i = 0; i < BacklogItems.Length; i++)
+        for (int i = 0; i < items.Length; i++)
         {
             var entity = new Card
             {
-                Title = BacklogItems[i],
+                Title = items[i],
                 ColumnId = backlogCol.Id,
                 Position = i,
             };
@@ -298,12 +370,10 @@ public class TestDataService(AppDbContext db, ILogger<TestDataService> logger) :
         }
 
         await db.SaveChangesAsync(ct);
-        logger.LogInformation("Seeded {Count} backlog cards for board {BoardId}", BacklogItems.Length, boardId);
+        logger.LogInformation("Seeded {Count} backlog cards for board {BoardId}", items.Length, boardId);
         return ServiceResult.Ok();
     }
 
-    // Cards with DoneDay go to the last column; cards with DoingDay go to the doing column
-    // (if it exists); everything else stays in the To Do column.
     private static Column TargetColumn(SprintCard card, Column toDoCol, Column? doingCol, Column lastCol) =>
         card.DoneDay.HasValue ? lastCol :
         card.DoingDay.HasValue && doingCol is not null ? doingCol :
@@ -317,14 +387,12 @@ public class TestDataService(AppDbContext db, ILogger<TestDataService> logger) :
         var backlogEntered = sprintStart;
         var toDoEntered = sprintStart.AddDays(card.ToDoDay);
 
-        // All cards start in backlog — exited when moved to To Do
         entity.StateHistory.Add(new CardStateHistory
         {
             ColumnId = backlogCol.Id, ColumnName = backlogCol.Name,
             EnteredAt = backlogEntered, ExitedAt = toDoEntered,
         });
 
-        // Cards with no DoingDay stay in To Do
         if (!card.DoingDay.HasValue || (doingCol is null && !card.DoneDay.HasValue))
         {
             entity.StateHistory.Add(new CardStateHistory
@@ -337,7 +405,6 @@ public class TestDataService(AppDbContext db, ILogger<TestDataService> logger) :
 
         var doingEntered = sprintStart.AddDays(card.DoingDay!.Value);
 
-        // To Do → exited when work started
         entity.StateHistory.Add(new CardStateHistory
         {
             ColumnId = toDoCol.Id, ColumnName = toDoCol.Name,
@@ -346,7 +413,6 @@ public class TestDataService(AppDbContext db, ILogger<TestDataService> logger) :
 
         if (!card.DoneDay.HasValue)
         {
-            // In progress — open entry in doing column
             entity.StateHistory.Add(new CardStateHistory
             {
                 ColumnId = doingCol!.Id, ColumnName = doingCol!.Name,
@@ -357,7 +423,6 @@ public class TestDataService(AppDbContext db, ILogger<TestDataService> logger) :
 
         var doneEntered = sprintStart.AddDays(card.DoneDay!.Value);
 
-        // Record the doing phase before marking done
         if (doingCol is not null)
         {
             entity.StateHistory.Add(new CardStateHistory
@@ -367,7 +432,6 @@ public class TestDataService(AppDbContext db, ILogger<TestDataService> logger) :
             });
         }
 
-        // Open entry in last column (done)
         entity.StateHistory.Add(new CardStateHistory
         {
             ColumnId = lastCol.Id, ColumnName = lastCol.Name,

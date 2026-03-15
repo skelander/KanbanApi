@@ -100,6 +100,10 @@ using (var scope = app.Services.CreateScope())
         // Column already exists — expected on subsequent starts
     }
 
+    // Create SeedDatasets table if missing (added after initial schema creation)
+    await db.Database.ExecuteSqlRawAsync(
+        "CREATE TABLE IF NOT EXISTS SeedDatasets (Name TEXT PRIMARY KEY, DataJson TEXT NOT NULL)");
+
     if (!await db.Users.AnyAsync())
     {
         db.Users.Add(new User

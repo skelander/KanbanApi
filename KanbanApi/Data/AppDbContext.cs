@@ -11,6 +11,7 @@ public class AppDbContext(DbContextOptions<AppDbContext> options) : DbContext(op
     public DbSet<Column> Columns => Set<Column>();
     public DbSet<Card> Cards => Set<Card>();
     public DbSet<CardStateHistory> CardStateHistories => Set<CardStateHistory>();
+    public DbSet<SeedDataset> SeedDatasets => Set<SeedDataset>();
 
     protected override void OnModelCreating(ModelBuilder modelBuilder)
     {
@@ -36,6 +37,8 @@ public class AppDbContext(DbContextOptions<AppDbContext> options) : DbContext(op
         modelBuilder.Entity<User>()
             .HasIndex(u => u.Username)
             .IsUnique();
+
+        modelBuilder.Entity<SeedDataset>().HasKey(s => s.Name);
 
         modelBuilder.Entity<Card>().HasIndex(c => c.ColumnId);
         modelBuilder.Entity<Column>().HasIndex(c => c.BoardId);
