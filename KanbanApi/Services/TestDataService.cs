@@ -98,12 +98,26 @@ public class TestDataService(AppDbContext db, ILogger<TestDataService> logger) :
         new("Bulk card operations",        "Select multiple cards to move, label, or delete in one action.",             70, 8,  null, null),
 
         // Still in Backlog — never pulled
-        new("Export board as PDF",         null,                                                                         75, null, null, null),
-        new("Email notifications",         "Notify members when cards are assigned or moved.",                           75, null, null, null),
-        new("Recurring card templates",    null,                                                                         74, null, null, null),
-        new("Board activity feed",         "Per-board feed of all card and member activity.",                            73, null, null, null),
-        new("Attach files to cards",       null,                                                                         72, null, null, null),
-        new("Card comments and @mentions", null,                                                                         70, null, null, null),
+        new("Export board as PDF",               null,                                                                      75, null, null, null),
+        new("Email notifications",               "Notify members when cards are assigned or moved.",                        75, null, null, null),
+        new("Recurring card templates",          null,                                                                      74, null, null, null),
+        new("Board activity feed",               "Per-board feed of all card and member activity.",                         73, null, null, null),
+        new("Attach files to cards",             null,                                                                      72, null, null, null),
+        new("Card comments and @mentions",       null,                                                                      70, null, null, null),
+        new("Time tracking per card",            "Log time spent; show totals per card and per sprint.",                    68, null, null, null),
+        new("Custom labels and tags",            "Color-coded labels for categorising cards.",                              67, null, null, null),
+        new("Board templates library",           "Save a board as a template and create new boards from it.",               66, null, null, null),
+        new("Two-factor authentication",         null,                                                                      65, null, null, null),
+        new("Archive completed cards",           "Move done cards to an archive instead of deleting them.",                 63, null, null, null),
+        new("Card dependencies",                 "Mark one card as blocked by another.",                                    62, null, null, null),
+        new("Guest access / public boards",      "Share a read-only board link without requiring login.",                   60, null, null, null),
+        new("CSV export",                        "Export card data and cycle times as CSV for further analysis.",           58, null, null, null),
+        new("Slack integration",                 "Post card move notifications to a Slack channel.",                        55, null, null, null),
+        new("Swimlanes",                         "Group cards horizontally by assignee, epic, or priority.",                50, null, null, null),
+        new("Card age alerts",                   "Highlight cards that have exceeded their SLE threshold.",                 45, null, null, null),
+        new("Calendar view",                     "Show cards with due dates on a monthly calendar.",                        40, null, null, null),
+        new("Native mobile app",                 null,                                                                      35, null, null, null),
+        new("Offline support",                   "Cache board state locally; sync when back online.",                       30, null, null, null),
     ];
 
     private static readonly string[] MultiSprintColumns = ["Todo", "Reqs", "Code", "Test", "Done"];
