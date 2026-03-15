@@ -55,16 +55,16 @@ public class BoardsControllerTests(KanbanApiFactory factory) : IClassFixture<Kan
         var response = await _client.PostAsJsonAsync("/boards", new CreateBoardRequest("Default Columns Board", null));
         var board = await response.Content.ReadFromJsonAsync<BoardResponse>();
         var columns = board!.Columns.ToList();
-        Assert.Equal(4, columns.Count);
+        Assert.Equal(6, columns.Count);
         Assert.Equal("Backlog", columns[0].Name);
         Assert.True(columns[0].IsBacklog);
-        Assert.Equal("To Do", columns[1].Name);
-        Assert.Equal("Doing", columns[2].Name);
-        Assert.Equal("Done", columns[3].Name);
-        Assert.Equal(0, columns[0].Position);
-        Assert.Equal(1, columns[1].Position);
-        Assert.Equal(2, columns[2].Position);
-        Assert.Equal(3, columns[3].Position);
+        Assert.Equal("Todo", columns[1].Name);
+        Assert.Equal("Resq", columns[2].Name);
+        Assert.Equal("Code", columns[3].Name);
+        Assert.Equal("Test", columns[4].Name);
+        Assert.Equal("Done", columns[5].Name);
+        for (int i = 0; i < columns.Count; i++)
+            Assert.Equal(i, columns[i].Position);
     }
 
     [Fact]

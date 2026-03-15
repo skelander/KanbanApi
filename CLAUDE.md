@@ -34,7 +34,7 @@ KanbanApi.Tests/
 - `POST /auth/users` — admin only
 - `DELETE /auth/users/{id}` — admin only (cannot delete last admin)
 - `GET /boards` — authenticated; members see their own boards, admins see all boards
-- `POST /boards` — admin only, auto-creates To Do / Doing / Done columns
+- `POST /boards` — admin only, auto-creates Todo / Resq / Code / Test / Done columns
 - `GET/PUT/DELETE /boards/{id}` — member or admin (update/delete: owner or admin)
 - `GET/POST /boards/{id}/members` — member or admin (POST: owner or admin)
 - `DELETE /boards/{id}/members/{userId}` — owner or admin (cannot remove owner)
