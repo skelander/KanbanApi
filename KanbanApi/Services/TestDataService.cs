@@ -51,10 +51,10 @@ public class TestDataService(AppDbContext db, ILogger<TestDataService> logger) :
         new("User profile page",          null,                                                           6,  null, null),
     ];
 
-    // Multi-sprint dataset: 12 two-week sprints (~24 weeks of team history).
+    // Multi-sprint dataset: 5 two-week sprints (~10 weeks of team history).
     // TodoAgo/DoingAgo/DoneAgo are days before today when each transition occurred.
     // DoingColOffset: -1=Reqs, 0=Code (default), +1=Test
-    // Highlights: zombie items in Todo, aging WIP spread across Reqs/Code/Test, and completed work.
+    // Sprints 1–4: all cards done by sprint end. Sprint 5 (current): work in progress.
     // Seeding always recreates the work columns to match MultiSprintColumns.
     private record MultiSprintCard(string Title, string? Description, int TodoAgo, int? DoingAgo, int? DoneAgo, int DoingColOffset = 0);
 
@@ -62,75 +62,37 @@ public class TestDataService(AppDbContext db, ILogger<TestDataService> logger) :
 
     private static readonly MultiSprintCard[] MultiSprintCards =
     [
-        // Sprint 1 (168–154 days ago) — all done (project kickoff)
-        new("Repo and tooling setup",    "Create GitHub repo, branch protection, CI skeleton, and team access.",      167, 166, 163),
-        new("Dev environment",           "Standardise local setup with docker-compose, .editorconfig, and README.",   167, 164, 159),
-        new("Tech stack decision",       "Evaluate and agree on backend/frontend frameworks, DB, and hosting.",       165, 161, 156),
+        // Sprint 1 (70–56 days ago) — all done
+        new("Repo setup and CI/CD",      "GitHub repo, branch protection, Actions pipeline, and team access.",        69, 68, 65),
+        new("Domain model and schema",   "Define entities and EF Core relationships; run initial migration.",          69, 66, 61),
+        new("JWT authentication",        "HMAC-SHA256 token issuance and validation with role-based claims.",          68, 64, 59),
+        new("Core REST endpoints",       "Controller routing, global error handler, and health check endpoint.",       67, 62, 57),
 
-        // Sprint 2 (154–140 days ago) — all done
-        new("CI/CD pipeline",            "GitHub Actions: lint, build, test, and deploy to staging on merge.",        153, 152, 148),
-        new("Staging environment",       "Provision staging server; automate deployment from main branch.",           153, 149, 144),
-        new("Structured logging",        "Structured logging with correlation IDs; alert on 5xx error rate.",         151, 147, 142),
+        // Sprint 2 (56–42 days ago) — all done
+        new("Board CRUD",                "Create, read, update, and delete boards with owner-only enforcement.",       55, 54, 51),
+        new("Card management",           "Full card lifecycle: create, edit title/description, delete.",               55, 52, 47, DoingColOffset: 1),
+        new("Column ordering",           "Enforce position uniqueness per board; reorder via position updates.",        54, 50, 45),
+        new("Member access control",     "Invite and remove members; admin and owner permission model.",               53, 48, 43, DoingColOffset: -1),
 
-        // Sprint 3 (140–126 days ago) — all done
-        new("Domain model v1",           "Finalise entity graph and EF Core migrations for the v1 schema.",           139, 138, 134),
-        new("REST API skeleton",         "Controller routing, global error handler, and OpenAPI spec scaffold.",      139, 136, 130),
-        new("Auth spike",                "Evaluate JWT vs session auth; document decision and security trade-offs.",  137, 133, 128),
+        // Sprint 3 (42–28 days ago) — all done
+        new("Drag-and-drop reordering",  "Reorder cards within and across columns via position updates.",              41, 40, 37),
+        new("WIP limits",                "Configurable per-column WIP limits; 409 Conflict when at limit.",            41, 38, 33, DoingColOffset: 1),
+        new("Card state history",        "Track column transitions with EnteredAt/ExitedAt for flow metrics.",         40, 36, 31),
+        new("Integration test suite",    "WebApplicationFactory suite covering happy-path and error scenarios.",        39, 34, 29, DoingColOffset: -1),
 
-        // Sprint 4 (126–112 days ago) — 3 done, 1 zombie in To Do
-        new("User management API",       "CRUD for users; admin-only delete; password hashing with BCrypt.",          125, 124, 120),
-        new("Role-based access",         "Admin and user roles; route-level authorization enforcement.",              125, 121, 116),
-        new("API integration tests",     "WebApplicationFactory test suite with happy-path and error scenarios.",     124, 119, 114),
-        new("Refresh token support",     "Silent re-auth with short-lived access and long-lived refresh tokens.",     123, null, null), // zombie – de-scoped
+        // Sprint 4 (28–14 days ago) — all done
+        new("Work item age chart",       "SVG scatter plot: X = column, Y = days since leaving Backlog.",              27, 26, 23),
+        new("Sprint navigation",         "Step through historical sprint snapshots via board state reconstruction.",   27, 24, 19, DoingColOffset: 1),
+        new("Flow metrics foundation",   "85th-percentile SLE line; backlog excluded from chart.",                     26, 22, 17),
+        new("Test data seeding",         "Multi-sprint seed endpoint that recreates columns dynamically.",             25, 20, 15, DoingColOffset: -1),
 
-        // Sprint 5 (112–98 days ago) — 2 done, 1 in Doing, 1 in To Do
-        new("Board data model",          "Board, Column, Card entities with EF Core relationships and migrations.",   111, 110, 106),
-        new("Board CRUD endpoints",      "Create/read/update/delete boards with owner-only access enforcement.",      111, 107, 102),
-        new("Board membership API",      "Invite and remove members; permission checks on all board endpoints.",      110, 103, null), // doing at sprint end
-        new("Audit log",                 "Append-only audit trail for all write operations.",                         108, null, null), // stuck
-
-        // Sprint 6 (98–84 days ago) — all done
-        new("Initial project setup",     "Scaffold the project, configure linting, and set up local dev environment.", 97, 96, 94),
-        new("Core data models",          "Define User, Board, Column, and Card entities with EF Core.",                96, 94, 91),
-        new("Basic API structure",       "Set up controller routing, middleware pipeline, and error handling.",        95, 93, 88),
-
-        // Sprint 7 (84–70 days ago) — all done
-        new("User registration",         "Registration endpoint with validation and email uniqueness check.",          83, 82, 78),
-        new("JWT authentication",        "Implement JWT issuance and validation with role-based claims.",              83, 80, 75),
-        new("Password security",         "BCrypt hashing, salt rounds, and brute-force protection.",                  82, 78, 72),
-
-        // Sprint 8 (70–56 days ago) — all done
-        new("Board CRUD",                "Create, read, update, and delete boards with ownership checks.",            69, 68, 64),
-        new("Column management",         "Reorder columns; enforce position uniqueness per board.",                   69, 66, 61),
-        new("Card creation and editing", "Full card lifecycle: create, update title/description, delete.",            68, 64, 58),
-        new("Drag-and-drop reordering",  "Reorder cards within and across columns via position updates.",             67, 62, 57),
-
-        // Sprint 9 (56–42 days ago) — 3 done, 1 zombie in To Do
-        new("WIP limits",                "Configurable per-column WIP limits with 409 Conflict enforcement.",         55, 54, 51),
-        new("Board memberships",         "Invite users to boards; owner and member permission model.",                55, 52, 47),
-        new("Card state history",        "Track column transitions with timestamps for analytics.",                   54, 50, 44),
-        new("Accessibility improvements","WCAG 2.1 AA audit: fix contrast ratios and keyboard navigation.",           54, null, null), // zombie
-
-        // Sprint 10 (42–28 days ago) — 3 done, 1 stuck in To Do
-        new("Full-text search",          "Search cards and boards by keyword using EF Core LIKE queries.",            41, 40, 36),
-        new("File attachments",          "Upload and serve file attachments on cards via object storage.",            41, 37, 33),
-        new("Performance profiling",     "Identify and fix slow queries; add missing indexes.",                       39, 35, 30),
-        new("Email notifications",       "Transactional emails for card assignments and due date reminders.",         40, null, null), // stuck
-
-        // Sprint 11 (28–14 days ago) — 2 done, 3 in Doing (Reqs/Code/Test)
-        new("Dark mode",                 "System-preference-aware dark theme using CSS custom properties.",           27, 26, 22),
-        new("Mobile responsive layout",  "Ensure all views work correctly on phones and tablets.",                   27, 23, 18),
-        new("User profile page",         "Avatar, display name, and notification preference settings.",              26, 19, null, DoingColOffset: 1),  // doing in Test
-        new("Board analytics dashboard", "Throughput, WIP, and cycle time summary per board.",                       25, 17, null),                     // doing in Code
-        new("API documentation",         "OpenAPI/Swagger spec for all endpoints with request/response examples.",   24, 15, null, DoingColOffset: -1), // doing in Reqs
-
-        // Sprint 12 (14–0 days ago, current) — 1 done, 3 in Doing (Reqs/Code/Test), 2 in Todo
-        new("Keyboard shortcuts",        "Global keyboard shortcuts for common actions (new card, move, etc.).",      13, 12, 9),
-        new("Activity feed",             "Per-board feed of all card and member activity.",                           10, 3,  null, DoingColOffset: -1), // doing in Reqs
-        new("Bulk card operations",      "Select multiple cards to move, label, or delete in one action.",           13, 10, null),                     // doing in Code
-        new("Card due dates",            "Set, display, and filter cards by due date; highlight overdue cards.",      12, 8,  null, DoingColOffset: 1),  // doing in Test
-        new("Sub-tasks / checklists",    "Nested checklist items on cards with completion tracking.",                 11, null, null),
-        new("Recurring card templates",  "Schedule cards to be created automatically at a set interval.",             8, null, null),
+        // Sprint 5 (14–0 days ago, current) — 1 done, 3 in Doing (Reqs/Code/Test), 2 in Todo
+        new("Dark mode",                 "System-preference-aware dark theme using CSS custom properties.",            13, 12, 9),
+        new("Keyboard shortcuts",        "Global shortcuts for common actions: new card, move, delete.",               12, 8,  null, DoingColOffset: -1), // Reqs
+        new("Sub-tasks / checklists",    "Nested checklist items on cards with per-item completion tracking.",         11, 7,  null),                     // Code
+        new("Card due dates",            "Set, display, and filter by due date; highlight overdue cards.",             10, 5,  null, DoingColOffset: 1),  // Test
+        new("Activity feed",             "Per-board feed of all card and member activity.",                            9,  null, null),
+        new("Bulk card operations",      "Select multiple cards to move, label, or delete in one action.",             8,  null, null),
     ];
 
     public Task<ServiceResult> SeedAsync(int boardId, CancellationToken ct = default) =>
