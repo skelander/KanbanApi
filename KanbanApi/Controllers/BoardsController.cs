@@ -9,7 +9,7 @@ namespace KanbanApi.Controllers;
 [ApiController]
 [Route("boards")]
 [Authorize]
-public class BoardsController(IBoardService boardService) : ControllerBase
+public class BoardsController(IBoardService boardService, ITestDataService testDataService) : ControllerBase
 {
     private int UserId => int.Parse(User.FindFirstValue(ClaimTypes.NameIdentifier)!);
     private bool IsAdmin => User.IsInRole("admin");
@@ -28,7 +28,10 @@ public class BoardsController(IBoardService boardService) : ControllerBase
         var username = User.FindFirstValue(ClaimTypes.Name)!;
         var role = User.FindFirstValue(ClaimTypes.Role)!;
         var result = await boardService.CreateBoardAsync(request, UserId, username, role, ct);
-        return CreatedAtAction(nameof(GetBoard), new { id = result.Value!.Id }, result.Value);
+        var boardId = result.Value!.Id;
+        await testDataService.SeedAsync(boardId, ct);
+        var fresh = await boardService.GetBoardAsync(boardId, UserId, IsAdmin, ct);
+        return CreatedAtAction(nameof(GetBoard), new { id = boardId }, fresh.Value);
     }
 
     [HttpGet("{id}")]
