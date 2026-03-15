@@ -21,6 +21,7 @@ public class CardsControllerTests(KanbanApiFactory factory) : IClassFixture<Kanb
     {
         var board = await SetupAsync();
         var column = board.Columns.First(c => c.IsBacklog);
+        var initialCount = column.Cards.Count();
         var response = await _client.PostAsJsonAsync(
             $"/boards/{board.Id}/columns/{column.Id}/cards",
             new CreateCardRequest("Card 1", "Description"));
@@ -28,7 +29,7 @@ public class CardsControllerTests(KanbanApiFactory factory) : IClassFixture<Kanb
         var card = await response.Content.ReadFromJsonAsync<CardResponse>();
         Assert.Equal("Card 1", card!.Title);
         Assert.Equal("Description", card.Description);
-        Assert.Equal(0, card.Position);
+        Assert.Equal(initialCount, card.Position);
     }
 
     [Fact]
@@ -54,11 +55,12 @@ public class CardsControllerTests(KanbanApiFactory factory) : IClassFixture<Kanb
     {
         var board = await SetupAsync();
         var column = board.Columns.First(c => c.IsBacklog);
+        var initialCount = column.Cards.Count();
         await _client.PostAsJsonAsync($"/boards/{board.Id}/columns/{column.Id}/cards", new CreateCardRequest("A", null));
         await _client.PostAsJsonAsync($"/boards/{board.Id}/columns/{column.Id}/cards", new CreateCardRequest("B", null));
         var response = await _client.PostAsJsonAsync($"/boards/{board.Id}/columns/{column.Id}/cards", new CreateCardRequest("C", null));
         var card = await response.Content.ReadFromJsonAsync<CardResponse>();
-        Assert.Equal(2, card!.Position);
+        Assert.Equal(initialCount + 2, card!.Position);
     }
 
     [Fact]
@@ -71,8 +73,9 @@ public class CardsControllerTests(KanbanApiFactory factory) : IClassFixture<Kanb
         var response = await _client.GetAsync($"/boards/{board.Id}/columns/{column.Id}/cards");
         Assert.Equal(HttpStatusCode.OK, response.StatusCode);
         var cards = await response.Content.ReadFromJsonAsync<List<CardResponse>>();
-        Assert.Equal(2, cards!.Count);
-        Assert.True(cards[0].Position <= cards[1].Position);
+        Assert.True(cards!.Count >= 2);
+        for (var i = 1; i < cards.Count; i++)
+            Assert.True(cards[i - 1].Position <= cards[i].Position);
     }
 
     [Fact]

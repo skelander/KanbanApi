@@ -17,7 +17,9 @@ public interface ITestDataService
 public class TestDataService(AppDbContext db, ILogger<TestDataService> logger) : ITestDataService
 {
     public record SprintCard(string Title, string? Description, int ToDoDay, int? DoingDay, int? DoneDay);
-    public record MultiSprintCard(string Title, string? Description, int TodoAgo, int? DoingAgo, int? DoneAgo, int DoingColOffset = 0);
+    // BacklogAgo: when the card was added to the backlog (days before today)
+    // TodoAgo: when it was pulled from the backlog (null = still in backlog)
+    public record MultiSprintCard(string Title, string? Description, int BacklogAgo, int? TodoAgo, int? DoingAgo, int? DoneAgo, int DoingColOffset = 0);
 
     private static readonly string[] DefaultBacklogItems =
     [
@@ -56,41 +58,52 @@ public class TestDataService(AppDbContext db, ILogger<TestDataService> logger) :
     ];
 
     // Multi-sprint dataset: 5 two-week sprints (~10 weeks of team history).
-    // TodoAgo/DoingAgo/DoneAgo are days before today when each transition occurred.
+    // All cards enter the Backlog before sprint 1 (75–70 days ago).
+    // Each sprint, cards are pulled from the Backlog. Unpulled cards remain there.
+    // BacklogAgo: days before today when card was added to backlog.
+    // TodoAgo: days before today when pulled from backlog (null = still in backlog).
     // DoingColOffset: -1=Reqs, 0=Code (default), +1=Test
     private static readonly MultiSprintCard[] DefaultMultiSprintCards =
     [
-        // Sprint 1 (70–56 days ago) — all done
-        new("Repo setup and CI/CD",      "GitHub repo, branch protection, Actions pipeline, and team access.",        69, 68, 65),
-        new("Domain model and schema",   "Define entities and EF Core relationships; run initial migration.",          69, 66, 61),
-        new("JWT authentication",        "HMAC-SHA256 token issuance and validation with role-based claims.",          68, 64, 59),
-        new("Core REST endpoints",       "Controller routing, global error handler, and health check endpoint.",       67, 62, 57),
+        // Sprint 1 (70–56 days ago) — pulled and done
+        new("Repo setup and CI/CD",        "GitHub repo, branch protection, Actions pipeline, and team access.",        75, 69, 68, 65),
+        new("Domain model and schema",     "Define entities and EF Core relationships; run initial migration.",          75, 69, 66, 61),
+        new("JWT authentication",          "HMAC-SHA256 token issuance and validation with role-based claims.",          74, 68, 64, 59),
+        new("Core REST endpoints",         "Controller routing, global error handler, and health check endpoint.",       74, 67, 62, 57),
 
-        // Sprint 2 (56–42 days ago) — all done
-        new("Board CRUD",                "Create, read, update, and delete boards with owner-only enforcement.",       55, 54, 51),
-        new("Card management",           "Full card lifecycle: create, edit title/description, delete.",               55, 52, 47, DoingColOffset: 1),
-        new("Column ordering",           "Enforce position uniqueness per board; reorder via position updates.",        54, 50, 45),
-        new("Member access control",     "Invite and remove members; admin and owner permission model.",               53, 48, 43, DoingColOffset: -1),
+        // Sprint 2 (56–42 days ago) — pulled and done
+        new("Board CRUD",                  "Create, read, update, and delete boards with owner-only enforcement.",       75, 55, 54, 51),
+        new("Card management",             "Full card lifecycle: create, edit title/description, delete.",               75, 55, 52, 47, DoingColOffset: 1),
+        new("Column ordering",             "Enforce position uniqueness per board; reorder via position updates.",        74, 54, 50, 45),
+        new("Member access control",       "Invite and remove members; admin and owner permission model.",               74, 53, 48, 43, DoingColOffset: -1),
 
-        // Sprint 3 (42–28 days ago) — all done
-        new("Drag-and-drop reordering",  "Reorder cards within and across columns via position updates.",              41, 40, 37),
-        new("WIP limits",                "Configurable per-column WIP limits; 409 Conflict when at limit.",            41, 38, 33, DoingColOffset: 1),
-        new("Card state history",        "Track column transitions with EnteredAt/ExitedAt for flow metrics.",         40, 36, 31),
-        new("Integration test suite",    "WebApplicationFactory suite covering happy-path and error scenarios.",        39, 34, 29, DoingColOffset: -1),
+        // Sprint 3 (42–28 days ago) — pulled and done
+        new("Drag-and-drop reordering",    "Reorder cards within and across columns via position updates.",              75, 41, 40, 37),
+        new("WIP limits",                  "Configurable per-column WIP limits; 409 Conflict when at limit.",            75, 41, 38, 33, DoingColOffset: 1),
+        new("Card state history",          "Track column transitions with EnteredAt/ExitedAt for flow metrics.",         74, 40, 36, 31),
+        new("Integration test suite",      "WebApplicationFactory suite covering happy-path and error scenarios.",        74, 39, 34, 29, DoingColOffset: -1),
 
-        // Sprint 4 (28–14 days ago) — all done
-        new("Work item age chart",       "SVG scatter plot: X = column, Y = days since leaving Backlog.",              27, 26, 23),
-        new("Sprint navigation",         "Step through historical sprint snapshots via board state reconstruction.",   27, 24, 19, DoingColOffset: 1),
-        new("Flow metrics foundation",   "85th-percentile SLE line; backlog excluded from chart.",                     26, 22, 17),
-        new("Test data seeding",         "Multi-sprint seed endpoint that recreates columns dynamically.",             25, 20, 15, DoingColOffset: -1),
+        // Sprint 4 (28–14 days ago) — pulled and done
+        new("Work item age chart",         "SVG scatter plot: X = column, Y = days since leaving Backlog.",              75, 27, 26, 23),
+        new("Sprint navigation",           "Step through historical sprint snapshots via board state reconstruction.",   74, 27, 24, 19, DoingColOffset: 1),
+        new("Flow metrics foundation",     "85th-percentile SLE line; backlog excluded from chart.",                     74, 26, 22, 17),
+        new("Test data seeding",           "Multi-sprint seed endpoint that recreates columns dynamically.",             73, 25, 20, 15, DoingColOffset: -1),
 
-        // Sprint 5 (14–0 days ago, current) — 1 done, 3 in Doing (Reqs/Code/Test), 2 in Todo
-        new("Dark mode",                 "System-preference-aware dark theme using CSS custom properties.",            13, 12, 9),
-        new("Keyboard shortcuts",        "Global shortcuts for common actions: new card, move, delete.",               12, 8,  null, DoingColOffset: -1),
-        new("Sub-tasks / checklists",    "Nested checklist items on cards with per-item completion tracking.",         11, 7,  null),
-        new("Card due dates",            "Set, display, and filter by due date; highlight overdue cards.",             10, 5,  null, DoingColOffset: 1),
-        new("Activity feed",             "Per-board feed of all card and member activity.",                            9,  null, null),
-        new("Bulk card operations",      "Select multiple cards to move, label, or delete in one action.",             8,  null, null),
+        // Sprint 5 (14–0 days ago, current) — pulled: 1 done, 2 doing, 2 in Todo
+        new("Dark mode",                   "System-preference-aware dark theme using CSS custom properties.",            73, 13, 12, 9),
+        new("Keyboard shortcuts",          "Global shortcuts for common actions: new card, move, delete.",               72, 12, 8,  null, DoingColOffset: -1),
+        new("Sub-tasks / checklists",      "Nested checklist items on cards with per-item completion tracking.",         72, 11, 7,  null),
+        new("Card due dates",              "Set, display, and filter by due date; highlight overdue cards.",             71, 10, 5,  null, DoingColOffset: 1),
+        new("Activity feed",               "Per-board feed of all card and member activity.",                            71, 9,  null, null),
+        new("Bulk card operations",        "Select multiple cards to move, label, or delete in one action.",             70, 8,  null, null),
+
+        // Still in Backlog — never pulled
+        new("Export board as PDF",         null,                                                                         75, null, null, null),
+        new("Email notifications",         "Notify members when cards are assigned or moved.",                           75, null, null, null),
+        new("Recurring card templates",    null,                                                                         74, null, null, null),
+        new("Board activity feed",         "Per-board feed of all card and member activity.",                            73, null, null, null),
+        new("Attach files to cards",       null,                                                                         72, null, null, null),
+        new("Card comments and @mentions", null,                                                                         70, null, null, null),
     ];
 
     private static readonly string[] MultiSprintColumns = ["Todo", "Reqs", "Code", "Test", "Done"];
@@ -247,7 +260,8 @@ public class TestDataService(AppDbContext db, ILogger<TestDataService> logger) :
                 cardDoingCol = workCols[colIdx];
             }
 
-            var targetCol = card.DoneAgo.HasValue ? lastCol
+            var targetCol = !card.TodoAgo.HasValue ? backlogCol
+                : card.DoneAgo.HasValue ? lastCol
                 : cardDoingCol is not null ? cardDoingCol
                 : toDoCol;
 
@@ -272,8 +286,20 @@ public class TestDataService(AppDbContext db, ILogger<TestDataService> logger) :
         Column backlogCol, Column toDoCol, Column? doingCol, Column lastCol,
         DateTime now)
     {
-        var toDoEntered = now.AddDays(-card.TodoAgo);
-        var backlogEntered = toDoEntered.AddDays(-1);
+        var backlogEntered = now.AddDays(-card.BacklogAgo);
+
+        if (!card.TodoAgo.HasValue)
+        {
+            // Card never pulled — still in backlog
+            entity.StateHistory.Add(new CardStateHistory
+            {
+                ColumnId = backlogCol.Id, ColumnName = backlogCol.Name,
+                EnteredAt = backlogEntered,
+            });
+            return;
+        }
+
+        var toDoEntered = now.AddDays(-card.TodoAgo.Value);
 
         entity.StateHistory.Add(new CardStateHistory
         {
