@@ -55,7 +55,10 @@ public class TestDataService(AppDbContext db, ILogger<TestDataService> logger) :
     // TodoAgo/DoingAgo/DoneAgo are days before today when each transition occurred.
     // DoingColOffset: -1=Reqs, 0=Code (default), +1=Test
     // Highlights: zombie items in Todo, aging WIP spread across Reqs/Code/Test, and completed work.
+    // Seeding always recreates the work columns to match MultiSprintColumns.
     private record MultiSprintCard(string Title, string? Description, int TodoAgo, int? DoingAgo, int? DoneAgo, int DoingColOffset = 0);
+
+    private static readonly string[] MultiSprintColumns = ["Todo", "Reqs", "Code", "Test", "Done"];
 
     private static readonly MultiSprintCard[] MultiSprintCards =
     [
@@ -186,23 +189,36 @@ public class TestDataService(AppDbContext db, ILogger<TestDataService> logger) :
 
         if (columns.Count == 0) return ServiceResult.NotFound();
 
+        // Remove all existing cards
         var columnIds = columns.Select(c => c.Id).ToList();
         var existing = await db.Cards.Where(c => columnIds.Contains(c.ColumnId)).ToListAsync(ct);
         db.Cards.RemoveRange(existing);
 
-        var now = DateTime.UtcNow;
+        // Replace non-backlog columns with the expected set
         var backlogCol = columns.First(c => c.IsBacklog);
-        var workCols = columns.Where(c => !c.IsBacklog).OrderBy(c => c.Position).ToList();
-        var toDoCol = workCols.Count > 0 ? workCols[0] : backlogCol;
-        var lastCol = workCols.Count > 0 ? workCols[workCols.Count - 1] : backlogCol;
-        var midIdx = workCols.Count / 2;
+        db.Columns.RemoveRange(columns.Where(c => !c.IsBacklog));
 
-        var positions = columns.ToDictionary(c => c.Id, _ => 0);
+        var workCols = new List<Column>();
+        for (int i = 0; i < MultiSprintColumns.Length; i++)
+        {
+            var col = new Column { BoardId = boardId, Name = MultiSprintColumns[i], Position = i + 1 };
+            db.Columns.Add(col);
+            workCols.Add(col);
+        }
+
+        await db.SaveChangesAsync(ct); // flush so new columns get their IDs
+
+        var now = DateTime.UtcNow;
+        var toDoCol = workCols[0];
+        var lastCol = workCols[workCols.Count - 1];
+        var midIdx = workCols.Count / 2;
+        var positions = workCols.ToDictionary(c => c.Id, _ => 0);
+        positions[backlogCol.Id] = 0;
 
         foreach (var card in MultiSprintCards)
         {
             Column? cardDoingCol = null;
-            if (card.DoingAgo.HasValue && workCols.Count >= 3)
+            if (card.DoingAgo.HasValue)
             {
                 var colIdx = Math.Clamp(midIdx + card.DoingColOffset, 1, workCols.Count - 2);
                 cardDoingCol = workCols[colIdx];
