@@ -51,10 +51,11 @@ public class TestDataService(AppDbContext db, ILogger<TestDataService> logger) :
         new("User profile page",          null,                                                           6,  null, null),
     ];
 
-    // Multi-sprint dataset: 7 two-week sprints (~14 weeks of team history).
-    // ToDoAgo/DoingAgo/DoneAgo are days before today when each transition occurred.
-    // Highlights: zombie items (54d, 40d in To Do), aging WIP, and completed work.
-    private record MultiSprintCard(string Title, string? Description, int ToDoAgo, int? DoingAgo, int? DoneAgo);
+    // Multi-sprint dataset: 12 two-week sprints (~24 weeks of team history).
+    // TodoAgo/DoingAgo/DoneAgo are days before today when each transition occurred.
+    // DoingColOffset: -1=Reqs, 0=Code (default), +1=Test
+    // Highlights: zombie items in Todo, aging WIP spread across Reqs/Code/Test, and completed work.
+    private record MultiSprintCard(string Title, string? Description, int TodoAgo, int? DoingAgo, int? DoneAgo, int DoingColOffset = 0);
 
     private static readonly MultiSprintCard[] MultiSprintCards =
     [
@@ -113,19 +114,19 @@ public class TestDataService(AppDbContext db, ILogger<TestDataService> logger) :
         new("Performance profiling",     "Identify and fix slow queries; add missing indexes.",                       39, 35, 30),
         new("Email notifications",       "Transactional emails for card assignments and due date reminders.",         40, null, null), // stuck
 
-        // Sprint 11 (28–14 days ago) — 2 done, 2 in Doing, 1 in To Do
+        // Sprint 11 (28–14 days ago) — 2 done, 3 in Doing (Reqs/Code/Test)
         new("Dark mode",                 "System-preference-aware dark theme using CSS custom properties.",           27, 26, 22),
         new("Mobile responsive layout",  "Ensure all views work correctly on phones and tablets.",                   27, 23, 18),
-        new("User profile page",         "Avatar, display name, and notification preference settings.",              26, 19, null), // doing
-        new("Board analytics dashboard", "Throughput, WIP, and cycle time summary per board.",                       25, 17, null), // doing
-        new("API documentation",         "OpenAPI/Swagger spec for all endpoints with request/response examples.",   24, null, null), // to do
+        new("User profile page",         "Avatar, display name, and notification preference settings.",              26, 19, null, DoingColOffset: 1),  // doing in Test
+        new("Board analytics dashboard", "Throughput, WIP, and cycle time summary per board.",                       25, 17, null),                     // doing in Code
+        new("API documentation",         "OpenAPI/Swagger spec for all endpoints with request/response examples.",   24, 15, null, DoingColOffset: -1), // doing in Reqs
 
-        // Sprint 12 (14–0 days ago, current) — 1 done, 2 in Doing, 3 in To Do
+        // Sprint 12 (14–0 days ago, current) — 1 done, 3 in Doing (Reqs/Code/Test), 2 in Todo
         new("Keyboard shortcuts",        "Global keyboard shortcuts for common actions (new card, move, etc.).",      13, 12, 9),
-        new("Bulk card operations",      "Select multiple cards to move, label, or delete in one action.",           13, 10, null), // doing
-        new("Card due dates",            "Set, display, and filter cards by due date; highlight overdue cards.",      12, 8,  null), // doing
+        new("Activity feed",             "Per-board feed of all card and member activity.",                           10, 3,  null, DoingColOffset: -1), // doing in Reqs
+        new("Bulk card operations",      "Select multiple cards to move, label, or delete in one action.",           13, 10, null),                     // doing in Code
+        new("Card due dates",            "Set, display, and filter cards by due date; highlight overdue cards.",      12, 8,  null, DoingColOffset: 1),  // doing in Test
         new("Sub-tasks / checklists",    "Nested checklist items on cards with completion tracking.",                 11, null, null),
-        new("Activity feed",             "Per-board feed of all card and member activity.",                           10, null, null),
         new("Recurring card templates",  "Schedule cards to be created automatically at a set interval.",             8, null, null),
     ];
 
@@ -194,14 +195,21 @@ public class TestDataService(AppDbContext db, ILogger<TestDataService> logger) :
         var workCols = columns.Where(c => !c.IsBacklog).OrderBy(c => c.Position).ToList();
         var toDoCol = workCols.Count > 0 ? workCols[0] : backlogCol;
         var lastCol = workCols.Count > 0 ? workCols[workCols.Count - 1] : backlogCol;
-        var doingCol = workCols.Count > 2 ? workCols[workCols.Count / 2] : null;
+        var midIdx = workCols.Count / 2;
 
         var positions = columns.ToDictionary(c => c.Id, _ => 0);
 
         foreach (var card in MultiSprintCards)
         {
+            Column? cardDoingCol = null;
+            if (card.DoingAgo.HasValue && workCols.Count >= 3)
+            {
+                var colIdx = Math.Clamp(midIdx + card.DoingColOffset, 1, workCols.Count - 2);
+                cardDoingCol = workCols[colIdx];
+            }
+
             var targetCol = card.DoneAgo.HasValue ? lastCol
-                : card.DoingAgo.HasValue && doingCol is not null ? doingCol
+                : cardDoingCol is not null ? cardDoingCol
                 : toDoCol;
 
             var entity = new Card
@@ -211,7 +219,7 @@ public class TestDataService(AppDbContext db, ILogger<TestDataService> logger) :
                 ColumnId = targetCol.Id,
                 Position = positions[targetCol.Id]++,
             };
-            BuildAbsoluteHistory(entity, card, backlogCol, toDoCol, doingCol, lastCol, now);
+            BuildAbsoluteHistory(entity, card, backlogCol, toDoCol, cardDoingCol, lastCol, now);
             db.Cards.Add(entity);
         }
 
@@ -225,7 +233,7 @@ public class TestDataService(AppDbContext db, ILogger<TestDataService> logger) :
         Column backlogCol, Column toDoCol, Column? doingCol, Column lastCol,
         DateTime now)
     {
-        var toDoEntered = now.AddDays(-card.ToDoAgo);
+        var toDoEntered = now.AddDays(-card.TodoAgo);
         var backlogEntered = toDoEntered.AddDays(-1);
 
         entity.StateHistory.Add(new CardStateHistory
