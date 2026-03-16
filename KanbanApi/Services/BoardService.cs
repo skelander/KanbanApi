@@ -51,7 +51,7 @@ public class BoardService(AppDbContext db, ILogger<BoardService> logger) : IBoar
         var backlog = new Column { Name = "Backlog", Position = 0, IsBacklog = true, BoardId = board.Id };
         db.Columns.Add(backlog);
 
-        string[] defaultColumns = ["Todo", "Reqs", "Code", "Test", "Done"];
+        string[] defaultColumns = ["Analysis started", "Analysis done", "Coding started", "Coding done", "Testing started", "Testing done", "Deployed"];
         var columns = new List<Column> { backlog };
         for (int i = 0; i < defaultColumns.Length; i++)
         {

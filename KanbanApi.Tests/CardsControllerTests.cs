@@ -135,19 +135,19 @@ public class CardsControllerTests(KanbanApiFactory factory) : IClassFixture<Kanb
         var board = await SetupAsync();
         var columns = board.Columns.ToList();
         var col1 = columns[0]; // Backlog
-        var col2 = columns[1]; // Todo
-        var col3 = columns[2]; // Reqs
+        var col2 = columns[1]; // Analysis started
+        var col3 = columns[2]; // Analysis done
 
         var created = await (await _client.PostAsJsonAsync(
             $"/boards/{board.Id}/columns/{col1.Id}/cards",
             new CreateCardRequest("Flow Card", null))).Content.ReadFromJsonAsync<CardResponse>();
 
-        // Move: Backlog → Todo
+        // Move: Backlog → Analysis started
         await _client.PutAsJsonAsync(
             $"/boards/{board.Id}/columns/{col1.Id}/cards/{created!.Id}/move",
             new MoveCardRequest(col2.Id, 0));
 
-        // Move: Todo → Reqs
+        // Move: Analysis started → Analysis done
         var response = await _client.PutAsJsonAsync(
             $"/boards/{board.Id}/columns/{col2.Id}/cards/{created.Id}/move",
             new MoveCardRequest(col3.Id, 0));

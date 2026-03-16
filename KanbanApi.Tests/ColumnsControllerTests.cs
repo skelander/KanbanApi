@@ -29,8 +29,8 @@ public class ColumnsControllerTests(KanbanApiFactory factory) : IClassFixture<Ka
         var response = await _client.GetAsync($"/boards/{board.Id}/columns");
         Assert.Equal(HttpStatusCode.OK, response.StatusCode);
         var columns = await response.Content.ReadFromJsonAsync<List<ColumnResponse>>();
-        // 6 defaults: Backlog + Todo + Reqs + Code + Test + Done
-        Assert.Equal(6, columns!.Count);
+        // 8 defaults: Backlog + Analysis started/done + Coding started/done + Testing started/done + Deployed
+        Assert.Equal(8, columns!.Count);
         Assert.True(columns[0].IsBacklog);
         for (int i = 1; i < columns.Count; i++)
             Assert.True(columns[i - 1].Position <= columns[i].Position);

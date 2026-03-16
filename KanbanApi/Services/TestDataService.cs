@@ -120,7 +120,7 @@ public class TestDataService(AppDbContext db, ILogger<TestDataService> logger) :
         new("Offline support",                   "Cache board state locally; sync when back online.",                       30, null, null, null),
     ];
 
-    private static readonly string[] MultiSprintColumns = ["Todo", "Reqs", "Code", "Test", "Done"];
+    private static readonly string[] MultiSprintColumns = ["Analysis started", "Analysis done", "Coding started", "Coding done", "Testing started", "Testing done", "Deployed"];
 
     private static readonly JsonSerializerOptions JsonOptions = new() { PropertyNameCaseInsensitive = true };
 
