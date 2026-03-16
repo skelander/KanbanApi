@@ -123,12 +123,12 @@ public class TestDataService(AppDbContext db, ILogger<TestDataService> logger) :
 
     private static readonly JsonSerializerOptions JsonOptions = new() { PropertyNameCaseInsensitive = true };
 
-    public const string MultiSprintDatasetName = "multisprint";
+    public const string MultiSprintDatasetName = "multisprint_v2"; // v2: added BacklogAgo field
     public const string MidSprintDatasetName = "midsprint";
     public const string BacklogDatasetName = "backlog";
 
     public static readonly IReadOnlySet<string> ValidDatasetNames =
-        new HashSet<string> { MultiSprintDatasetName, MidSprintDatasetName, BacklogDatasetName };
+        new HashSet<string> { MultiSprintDatasetName, MidSprintDatasetName, BacklogDatasetName, "multisprint" }; // keep old name readable via GET
 
     public async Task<string?> GetDatasetAsync(string name, CancellationToken ct = default)
     {
