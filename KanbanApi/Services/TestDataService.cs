@@ -62,62 +62,61 @@ public class TestDataService(AppDbContext db, ILogger<TestDataService> logger) :
     // Each sprint, cards are pulled from the Backlog. Unpulled cards remain there.
     // BacklogAgo: days before today when card was added to backlog.
     // TodoAgo: days before today when pulled from backlog (null = still in backlog).
-    // DoingColOffset: -1=Reqs, 0=Code (default), +1=Test
+    // DoingColOffset: -2=Analysis done, -1=Coding started, 0=Coding done (default), +1=Testing started, +2=Testing done
     private static readonly MultiSprintCard[] DefaultMultiSprintCards =
     [
-        // Sprint 1 (70–56 days ago) — pulled and done
-        new("Repo setup and CI/CD",        "GitHub repo, branch protection, Actions pipeline, and team access.",        75, 69, 68, 65),
-        new("Domain model and schema",     "Define entities and EF Core relationships; run initial migration.",          75, 69, 66, 61),
-        new("JWT authentication",          "HMAC-SHA256 token issuance and validation with role-based claims.",          74, 68, 64, 59),
-        new("Core REST endpoints",         "Controller routing, global error handler, and health check endpoint.",       74, 67, 62, 57),
+        // Sprint 1 (70–56 days ago) — all deployed
+        new("Project setup and CI/CD",       "GitHub repo, branch protection, Actions pipeline, team access.",           75, 69, 68, 65,  DoingColOffset: -1),
+        new("Domain model and migrations",   "Define entities, EF Core relationships, run initial migration.",           75, 69, 66, 61,  DoingColOffset:  0),
+        new("JWT authentication",            "HS256 token issuance, role claims, token validation middleware.",          74, 68, 64, 59,  DoingColOffset: +1),
+        new("Core API scaffolding",          "Controller routing, global error handler, health check endpoint.",         74, 67, 62, 57,  DoingColOffset:  0),
 
-        // Sprint 2 (56–42 days ago) — pulled and done
-        new("Board CRUD",                  "Create, read, update, and delete boards with owner-only enforcement.",       75, 55, 54, 51),
-        new("Card management",             "Full card lifecycle: create, edit title/description, delete.",               75, 55, 52, 47, DoingColOffset: 1),
-        new("Column ordering",             "Enforce position uniqueness per board; reorder via position updates.",        74, 54, 50, 45),
-        new("Member access control",       "Invite and remove members; admin and owner permission model.",               74, 53, 48, 43, DoingColOffset: -1),
+        // Sprint 2 (56–42 days ago) — all deployed
+        new("Board CRUD",                    "Create, read, update, delete boards with owner-only enforcement.",         75, 55, 54, 51,  DoingColOffset:  0),
+        new("Column management",             "Create, reorder, and delete columns per board.",                           75, 55, 52, 47,  DoingColOffset: +1),
+        new("Card lifecycle",                "Create, edit, move, delete cards; auto-incrementing positions.",           74, 54, 50, 45,  DoingColOffset: -1),
+        new("WIP limits",                    "Per-column WIP cap; 409 Conflict when at limit on create or move.",        74, 53, 48, 43,  DoingColOffset:  0),
 
-        // Sprint 3 (42–28 days ago) — pulled and done
-        new("Drag-and-drop reordering",    "Reorder cards within and across columns via position updates.",              75, 41, 40, 37),
-        new("WIP limits",                  "Configurable per-column WIP limits; 409 Conflict when at limit.",            75, 41, 38, 33, DoingColOffset: 1),
-        new("Card state history",          "Track column transitions with EnteredAt/ExitedAt for flow metrics.",         74, 40, 36, 31),
-        new("Integration test suite",      "WebApplicationFactory suite covering happy-path and error scenarios.",        74, 39, 34, 29, DoingColOffset: -1),
+        // Sprint 3 (42–28 days ago) — all deployed
+        new("Board membership",              "Invite and remove members; owner and admin permission model.",             75, 41, 40, 37,  DoingColOffset: +1),
+        new("Card state history",            "Track column transitions with entered/exited timestamps.",                 75, 41, 38, 33,  DoingColOffset:  0),
+        new("Drag-and-drop reordering",      "Reorder cards within and across columns via position updates.",            74, 40, 36, 31,  DoingColOffset: -1),
+        new("Integration test suite",        "WebApplicationFactory tests covering happy path and error cases.",         74, 39, 34, 29,  DoingColOffset:  0),
 
-        // Sprint 4 (28–14 days ago) — pulled and done
-        new("Work item age chart",         "SVG scatter plot: X = column, Y = days since leaving Backlog.",              75, 27, 26, 23),
-        new("Sprint navigation",           "Step through historical sprint snapshots via board state reconstruction.",   74, 27, 24, 19, DoingColOffset: 1),
-        new("Flow metrics foundation",     "85th-percentile SLE line; backlog excluded from chart.",                     74, 26, 22, 17),
-        new("Test data seeding",           "Multi-sprint seed endpoint that recreates columns dynamically.",             73, 25, 20, 15, DoingColOffset: -1),
+        // Sprint 4 (28–14 days ago) — all deployed
+        new("Work item age chart",           "SVG scatter: X = column, Y = days since leaving Backlog.",                74, 27, 26, 23,  DoingColOffset: +1),
+        new("Sprint navigation",             "Step through historical board snapshots by sprint.",                       74, 27, 24, 19,  DoingColOffset:  0),
+        new("SLE reference lines",           "50th and 85th percentile lines from prior sprint cycle times.",           73, 26, 22, 17,  DoingColOffset: -1),
+        new("Test data seeding",             "Multi-sprint seed; cards pulled from Backlog per sprint.",                 73, 25, 20, 15,  DoingColOffset:  0),
 
-        // Sprint 5 (14–0 days ago, current) — pulled: 1 done, 2 doing, 2 in Todo
-        new("Dark mode",                   "System-preference-aware dark theme using CSS custom properties.",            73, 13, 12, 9),
-        new("Keyboard shortcuts",          "Global shortcuts for common actions: new card, move, delete.",               72, 12, 8,  null, DoingColOffset: -1),
-        new("Sub-tasks / checklists",      "Nested checklist items on cards with per-item completion tracking.",         72, 11, 7,  null),
-        new("Card due dates",              "Set, display, and filter by due date; highlight overdue cards.",             71, 10, 5,  null, DoingColOffset: 1),
-        new("Activity feed",               "Per-board feed of all card and member activity.",                            71, 9,  null, null),
-        new("Bulk card operations",        "Select multiple cards to move, label, or delete in one action.",             70, 8,  null, null),
+        // Sprint 5 (14–0 days ago, current) — 1 deployed, 4 in flight, 2 in Analysis started
+        new("Board analytics dashboard",     "Throughput, cycle time distribution, and CFD overview.",                  72, 13, 12,  9,  DoingColOffset: +1),  // Deployed
+        new("Card search and filter",        "Filter cards by title and label across all columns.",                      72, 12,  8,  null, DoingColOffset: -1), // Coding started
+        new("Notification preferences",      "Per-user settings for in-app and email notifications.",                   71, 11,  7,  null, DoingColOffset:  0), // Coding done
+        new("Assignee field on cards",       "Assign a board member to a card; filter by assignee.",                    71, 10,  5,  null, DoingColOffset: +1), // Testing started
+        new("Sprint planning view",          "Pull cards from Backlog into a sprint with capacity tracking.",            70,  9,  null, null),                   // Analysis started
+        new("Backlog prioritisation",        "Drag to reorder Backlog items; priority score field on cards.",           70,  8,  null, null),                   // Analysis started
 
         // Still in Backlog — never pulled
-        new("Export board as PDF",               null,                                                                      75, null, null, null),
-        new("Email notifications",               "Notify members when cards are assigned or moved.",                        75, null, null, null),
-        new("Recurring card templates",          null,                                                                      74, null, null, null),
-        new("Board activity feed",               "Per-board feed of all card and member activity.",                         73, null, null, null),
-        new("Attach files to cards",             null,                                                                      72, null, null, null),
-        new("Card comments and @mentions",       null,                                                                      70, null, null, null),
-        new("Time tracking per card",            "Log time spent; show totals per card and per sprint.",                    68, null, null, null),
-        new("Custom labels and tags",            "Color-coded labels for categorising cards.",                              67, null, null, null),
-        new("Board templates library",           "Save a board as a template and create new boards from it.",               66, null, null, null),
-        new("Two-factor authentication",         null,                                                                      65, null, null, null),
-        new("Archive completed cards",           "Move done cards to an archive instead of deleting them.",                 63, null, null, null),
-        new("Card dependencies",                 "Mark one card as blocked by another.",                                    62, null, null, null),
-        new("Guest access / public boards",      "Share a read-only board link without requiring login.",                   60, null, null, null),
-        new("CSV export",                        "Export card data and cycle times as CSV for further analysis.",           58, null, null, null),
-        new("Slack integration",                 "Post card move notifications to a Slack channel.",                        55, null, null, null),
-        new("Swimlanes",                         "Group cards horizontally by assignee, epic, or priority.",                50, null, null, null),
-        new("Card age alerts",                   "Highlight cards that have exceeded their SLE threshold.",                 45, null, null, null),
-        new("Calendar view",                     "Show cards with due dates on a monthly calendar.",                        40, null, null, null),
-        new("Native mobile app",                 null,                                                                      35, null, null, null),
-        new("Offline support",                   "Cache board state locally; sync when back online.",                       30, null, null, null),
+        new("Export board as PDF",           null,                                                                        75, null, null, null),
+        new("Email notifications",           "Notify members when cards are assigned or moved.",                         75, null, null, null),
+        new("Recurring card templates",      null,                                                                        74, null, null, null),
+        new("Attach files to cards",         null,                                                                        72, null, null, null),
+        new("Card comments and @mentions",   null,                                                                        70, null, null, null),
+        new("Time tracking per card",        "Log time spent; show totals per card and per sprint.",                     68, null, null, null),
+        new("Custom labels and tags",        "Color-coded labels for categorising cards.",                               67, null, null, null),
+        new("Board templates library",       "Save a board as a template and create new boards from it.",                66, null, null, null),
+        new("Two-factor authentication",     null,                                                                        65, null, null, null),
+        new("Archive completed cards",       "Move done cards to an archive instead of deleting them.",                  63, null, null, null),
+        new("Card dependencies",             "Mark one card as blocked by another.",                                     62, null, null, null),
+        new("Guest access / public boards",  "Share a read-only board link without requiring login.",                    60, null, null, null),
+        new("CSV export",                    "Export card data and cycle times as CSV for further analysis.",             58, null, null, null),
+        new("Slack integration",             "Post card move notifications to a Slack channel.",                         55, null, null, null),
+        new("Swimlanes",                     "Group cards horizontally by assignee, epic, or priority.",                 50, null, null, null),
+        new("Card age alerts",               "Highlight cards that have exceeded their SLE threshold.",                  45, null, null, null),
+        new("Calendar view",                 "Show cards with due dates on a monthly calendar.",                         40, null, null, null),
+        new("Native mobile app",             null,                                                                        35, null, null, null),
+        new("Offline support",               "Cache board state locally; sync when back online.",                        30, null, null, null),
     ];
 
     private static readonly string[] MultiSprintColumns = ["Analysis started", "Analysis done", "Coding started", "Coding done", "Testing started", "Testing done", "Deployed"];
